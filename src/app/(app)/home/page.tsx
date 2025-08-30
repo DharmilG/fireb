@@ -3,9 +3,9 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { dummyUser } from '@/lib/dummy-data';
-import { Plus, MapPin } from 'lucide-react';
+import { Plus, MapPin, Smartphone, Bot, Send } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/auth-context';
 import { useEffect, useState } from 'react';
@@ -138,6 +138,45 @@ export default function HomePage() {
             </div>
           </CardContent>
         </Card>
+      </div>
+
+      <div className="mb-12">
+        <h2 className="text-2xl font-semibold font-headline mb-4 text-center">How It Works</h2>
+        <div className="grid gap-6 md:grid-cols-3">
+          <Card className="text-center shadow-md">
+            <CardHeader>
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary mb-4">
+                <Smartphone className="h-6 w-6" />
+              </div>
+              <CardTitle className="font-headline text-lg">1. You Report</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">Citizens submit reports of environmental incidents through the app or by SMS, complete with photos and location data.</p>
+            </CardContent>
+          </Card>
+          <Card className="text-center shadow-md">
+            <CardHeader>
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary mb-4">
+                <Bot className="h-6 w-6" />
+              </div>
+              <CardTitle className="font-headline text-lg">2. AI Validates</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">Our AI system instantly analyzes the submitted photo and data to verify the report's authenticity and assess its severity.</p>
+            </CardContent>
+          </Card>
+          <Card className="text-center shadow-md">
+            <CardHeader>
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary mb-4">
+                <Send className="h-6 w-6" />
+              </div>
+              <CardTitle className="font-headline text-lg">3. Action is Taken</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground">Verified reports are sent to the nearest forest department with actionable suggestions like penalties, reforestation tasks, or legal action.</p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <Link href="/report" passHref className="fixed bottom-24 right-6 z-10">
