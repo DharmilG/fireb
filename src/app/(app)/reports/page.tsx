@@ -14,6 +14,8 @@ import { dummyReports, type Report } from '@/lib/dummy-data';
 import { cn } from '@/lib/utils';
 import { MapPin } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useAuth } from '@/contexts/auth-context';
+import { useMemo } from 'react';
 
 const statusColors: Record<Report['status'], string> = {
   Pending: 'bg-yellow-400/20 text-yellow-700 border-yellow-400/50',
@@ -21,39 +23,58 @@ const statusColors: Record<Report['status'], string> = {
   Resolved: 'bg-green-400/20 text-green-700 border-green-400/50',
 };
 
-const ReportList = ({ reports }: { reports: Report[] }) => (
-  <div className="space-y-4">
-    {reports.map((report) => (
-      <Card key={report.id} className="overflow-hidden shadow-md">
-        <div className="relative h-40 w-full">
-          <Image
-            src={report.imageUrl}
-            alt={report.title}
-            fill
-            className="object-cover"
-            data-ai-hint="environmental incident"
-          />
-        </div>
-        <CardHeader>
-          <CardTitle className="font-headline text-lg">{report.title}</CardTitle>
-          <div className="flex items-center text-sm text-muted-foreground pt-1">
-            <MapPin className="h-4 w-4 mr-1.5"/>
-            <span>{report.location}</span>
-            <span className="mx-2">•</span>
-            <span>{report.date}</span>
-          </div>
-        </CardHeader>
-        <CardContent>
-            <Badge variant="outline" className={cn("font-semibold", statusColors[report.status])}>
-              {report.status}
-            </Badge>
-        </CardContent>
-      </Card>
-    ))}
-  </div>
-);
+const ReportList = ({ reports }: { reports: Report[] }) => {
+    if (reports.length === 0) {
+        return (
+            <div className="text-center py-10">
+                <p className="text-muted-foreground">You haven't created any reports yet.</p>
+            </div>
+        )
+    }
+
+    return (
+      <div className="space-y-4">
+        {reports.map((report) => (
+          <Card key={report.id} className="overflow-hidden shadow-md">
+            <div className="relative h-40 w-full">
+              <Image
+                src={report.imageUrl}
+                alt={report.title}
+                fill
+                className="object-cover"
+                data-ai-hint="environmental incident"
+              />
+            </div>
+            <CardHeader>
+              <CardTitle className="font-headline text-lg">{report.title}</CardTitle>
+              <div className="flex items-center text-sm text-muted-foreground pt-1">
+                <MapPin className="h-4 w-4 mr-1.5"/>
+                <span>{report.location}</span>
+                <span className="mx-2">•</span>
+                <span>{report.date}</span>
+              </div>
+            </CardHeader>
+            <CardContent>
+                <Badge variant="outline" className={cn("font-semibold", statusColors[report.status])}>
+                  {report.status}
+                </Badge>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+}
 
 export default function ReportsPage() {
+  const { user } = useAuth();
+
+  const myReports = useMemo(() => {
+    // In a real app, the user ID would come from the authenticated user.
+    // Since we are using dummy data, we'll use a hardcoded ID for "John Doe"
+    const currentUserId = "user-1"; 
+    return dummyReports.filter(report => report.userId === currentUserId);
+  }, []);
+
   return (
     <div className="p-4">
       <header className="mb-6">
@@ -69,8 +90,7 @@ export default function ReportsPage() {
           <ReportList reports={dummyReports} />
         </TabsContent>
         <TabsContent value="my-reports">
-          {/* For now, this will show the same as all reports */}
-          <ReportList reports={dummyReports} />
+          <ReportList reports={myReports} />
         </TabsContent>
       </Tabs>
     </div>

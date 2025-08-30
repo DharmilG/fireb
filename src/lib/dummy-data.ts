@@ -1,5 +1,6 @@
 export type Report = {
   id: string;
+  userId: string;
   title: string;
   type: 'Pollution' | 'Deforestation' | 'Illegal Fishing' | 'Other';
   status: 'Pending' | 'In Review' | 'Resolved';
@@ -16,6 +17,7 @@ export type LeaderboardUser = {
 };
 
 export type User = {
+  id: string;
   name: string;
   email: string;
   avatarUrl: string;
@@ -29,6 +31,7 @@ export type User = {
 export const dummyReports: Report[] = [
   {
     id: '1',
+    userId: 'user-1',
     title: 'Oil Spill near Sunrise Beach',
     type: 'Pollution',
     status: 'Resolved',
@@ -38,6 +41,7 @@ export const dummyReports: Report[] = [
   },
   {
     id: '2',
+    userId: 'user-2',
     title: 'Illegal logging in coastal forest',
     type: 'Deforestation',
     status: 'In Review',
@@ -47,6 +51,7 @@ export const dummyReports: Report[] = [
   },
   {
     id: '3',
+    userId: 'user-1',
     title: 'Plastic waste accumulation',
     type: 'Pollution',
     status: 'Pending',
@@ -65,6 +70,7 @@ export const dummyLeaderboard: LeaderboardUser[] = [
 ];
 
 export const dummyUser: User = {
+  id: 'user-1',
   name: 'John Doe',
   email: 'john.doe@email.com',
   avatarUrl: 'https://i.pravatar.cc/150?u=a042581f4e29026709d',
