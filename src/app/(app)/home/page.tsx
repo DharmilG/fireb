@@ -5,26 +5,9 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { dummyUser } from '@/lib/dummy-data';
-import { AlertTriangle, Plus, ShieldAlert, Waves } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/auth-context';
-
-const incidents = [
-  { id: 1, type: 'Pollution', position: { top: '25%', left: '40%' } },
-  { id: 2, type: 'Deforestation', position: { top: '50%', left: '60%' } },
-  { id: 3, type: 'Illegal Fishing', position: { top: '65%', left: '30%' } },
-];
-
-const IncidentIcon = ({ type }: { type: string }) => {
-  switch (type) {
-    case 'Pollution':
-      return <Waves className="h-5 w-5 text-white" />;
-    case 'Deforestation':
-      return <AlertTriangle className="h-5 w-5 text-white" />;
-    default:
-      return <ShieldAlert className="h-5 w-5 text-white" />;
-  }
-};
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -60,17 +43,6 @@ export default function HomePage() {
                 className="object-cover"
               />
               <div className="absolute inset-0 bg-black/10" />
-              {incidents.map((incident) => (
-                <div
-                  key={incident.id}
-                  className="absolute -translate-x-1/2 -translate-y-1/2"
-                  style={{ top: incident.position.top, left: incident.position.left }}
-                >
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive shadow-lg">
-                    <IncidentIcon type={incident.type} />
-                  </div>
-                </div>
-              ))}
             </div>
           </CardContent>
         </Card>
