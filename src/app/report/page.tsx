@@ -14,7 +14,9 @@ import { ArrowLeft, Camera, Check, Image as ImageIcon, Loader2, MapPin, Upload, 
 import { Logo } from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { verifyReport, type VerifyReportOutput } from '@/ai/flows/verify-report-flow';
+import { verifyReport } from '@/ai/flows/verify-report-flow';
+import type { VerifyReportOutput } from '@/ai/types/report-verification';
+
 
 const totalSteps = 4;
 
@@ -74,13 +76,7 @@ export default function ReportPage() {
     }
       
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-          const mediaStream = videoRef.current.srcObject as MediaStream;
-          mediaStream.getTracks().forEach(track => track.stop());
-          videoRef.current.srcObject = null;
-      } else if (stream) {
-          stream.getTracks().forEach(track => track.stop());
-      }
+      stopCameraStream();
     }
   }, [step, toast]);
 
@@ -100,8 +96,8 @@ export default function ReportPage() {
   
   const stopCameraStream = () => {
       if (videoRef.current && videoRef.current.srcObject) {
-          const mediaStream = videoRef.current.srcObject as MediaStream;
-          mediaStream.getTracks().forEach(track => track.stop());
+          const stream = videoRef.current.srcObject as MediaStream;
+          stream.getTracks().forEach(track => track.stop());
           videoRef.current.srcObject = null;
       }
   }
