@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Logo } from '@/components/logo';
 import { Waves, MapPin, ShieldCheck } from 'lucide-react';
+import React from 'react';
 
 const onboardingSteps = [
   {
@@ -52,7 +53,8 @@ const onboardingSteps = [
 
 export default function OnboardingPage({ params }: { params: { step: string } }) {
   const router = useRouter();
-  const currentStep = params?.step ? parseInt(params.step, 10) : 1;
+  const awaitedParams = React.use(params);
+  const currentStep = awaitedParams?.step ? parseInt(awaitedParams.step, 10) : 1;
   const currentStepIndex = currentStep - 1;
 
   if (isNaN(currentStepIndex) || currentStepIndex < 0 || currentStepIndex >= onboardingSteps.length) {
