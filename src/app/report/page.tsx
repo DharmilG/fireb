@@ -34,6 +34,7 @@ export default function ReportPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
+    let stream: MediaStream | null = null;
     if (step === 1) {
       const getCameraPermission = async () => {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -48,7 +49,7 @@ export default function ReportPage() {
         }
 
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          stream = await navigator.mediaDevices.getUserMedia({ video: true });
           setHasCameraPermission(true);
 
           if (videoRef.current) {
@@ -66,13 +67,16 @@ export default function ReportPage() {
       };
 
       getCameraPermission();
+    }
       
-      return () => {
-        // Stop camera stream when component unmounts or step changes
-        if (videoRef.current && videoRef.current.srcObject) {
-            const stream = videoRef.current.srcObject as MediaStream;
-            stream.getTracks().forEach(track => track.stop());
-        }
+    return () => {
+      // Stop camera stream when component unmounts or step changes
+      if (videoRef.current && videoRef.current.srcObject) {
+          const mediaStream = videoRef.current.srcObject as MediaStream;
+          mediaStream.getTracks().forEach(track => track.stop());
+          videoRef.current.srcObject = null;
+      } else if (stream) {
+          stream.getTracks().forEach(track => track.stop());
       }
     }
   }, [step, toast]);
@@ -224,5 +228,3 @@ export default function ReportPage() {
     </div>
   );
 }
-
-    
