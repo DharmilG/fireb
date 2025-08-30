@@ -14,6 +14,10 @@ import { ArrowLeft, Camera, Check, Image as ImageIcon, Loader2, MapPin, Upload, 
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { verifyReport, type VerifyReportOutput } from '@/ai/flows/verify-report-flow';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useAuth } from '@/contexts/auth-context';
+import { backgroundVerifyReport } from '@/ai/flows/background-verify-report-flow';
 
 
 const totalSteps = 4;
@@ -22,7 +26,8 @@ export default function ReportPage() {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     image: null as string | null,
-    location: 'Current Location',
+    location: null as { lat: number; lng: number } | null,
+    locationName: 'Current Location',
     title: '',
     description: '',
     type: '',
@@ -32,6 +37,7 @@ export default function ReportPage() {
 
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -75,6 +81,29 @@ export default function ReportPage() {
       
     return () => {
       stopCameraStream();
+    }
+  }, [step, toast]);
+
+  useEffect(() => {
+    if (step === 2 && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setFormData(prev => ({ 
+            ...prev, 
+            location: { lat: latitude, lng: longitude },
+            locationName: `Lat: ${latitude.toFixed(4)}, Lng: ${longitude.toFixed(4)}`
+          }));
+        },
+        (error) => {
+          console.error("Error getting location", error);
+          toast({
+            variant: 'destructive',
+            title: 'Location Unavailable',
+            description: 'Could not get your current location. Please ensure location services are enabled.',
+          })
+        }
+      )
     }
   }, [step, toast]);
 
@@ -150,13 +179,28 @@ export default function ReportPage() {
             photoDataUri: formData.image,
         });
         setVerificationResult(result);
+        if (user && !result.isSpam) {
+            const reportData = {
+                userId: user.uid,
+                title: formData.title,
+                description: formData.description,
+                type: formData.type,
+                location: formData.locationName,
+                imageUrl: formData.image, // Start with data URI
+                status: 'Pending',
+                createdAt: serverTimestamp(),
+                verification: result,
+            };
+            const docRef = await addDoc(collection(db, 'reports'), reportData);
+            backgroundVerifyReport(docRef.id);
+        }
         handleNext();
       } catch(error) {
         console.error("Verification failed", error);
         toast({
             variant: 'destructive',
-            title: 'Verification Failed',
-            description: 'Something went wrong while verifying your report. Please try again.',
+            title: 'Submission Failed',
+            description: 'Something went wrong while submitting your report. Please try again.',
         });
       } finally {
         setIsVerifying(false);
@@ -217,6 +261,9 @@ export default function ReportPage() {
                 ) : (
                    <Image src="https://picsum.photos/800/600" data-ai-hint="coastline aerial" alt="Map" fill className="object-cover" />
                 )}
+                 <div className="absolute bottom-2 right-2 bg-black/50 text-white text-xs p-2 rounded-md">
+                  {formData.locationName}
+                </div>
             </Card>
             <Button size="lg" className="w-full max-w-sm" onClick={handleNext}>Confirm Location</Button>
           </div>
@@ -294,3 +341,5 @@ export default function ReportPage() {
     </div>
   );
 }
+
+    
