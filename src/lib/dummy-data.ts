@@ -1,3 +1,4 @@
+
 export type Report = {
   id: string;
   userId: string;
@@ -49,13 +50,13 @@ export const allBadges: BadgeInfo[] = [
 export const dummyReports: Report[] = [
   {
     id: '1',
-    userId: 'user-1',
-    title: 'Oil Spill near Sunrise Beach',
+    userId: 'user-1', // This is one of "my" reports
+    title: 'Plastic waste accumulation on Turtle Cove',
     type: 'Pollution',
-    status: 'Resolved',
-    imageUrl: 'https://picsum.photos/400/300?random=1',
-    location: 'Sunrise Beach',
-    date: '2023-10-15',
+    status: 'Pending',
+    imageUrl: 'https://picsum.photos/400/300?random=3',
+    location: 'Turtle Cove',
+    date: '2023-11-02',
   },
   {
     id: '2',
@@ -69,13 +70,33 @@ export const dummyReports: Report[] = [
   },
   {
     id: '3',
-    userId: 'user-1',
-    title: 'Plastic waste accumulation',
+    userId: 'user-3',
+    title: 'Fishing nets abandoned near Coral Reef',
+    type: 'Illegal Fishing',
+    status: 'Resolved',
+    imageUrl: 'https://picsum.photos/400/300?random=4',
+    location: 'Coral Point',
+    date: '2023-10-22',
+  },
+    {
+    id: '4',
+    userId: 'user-1', // This is one of "my" reports
+    title: 'Oil Spill near Sunrise Beach',
     type: 'Pollution',
-    status: 'Pending',
-    imageUrl: 'https://picsum.photos/400/300?random=3',
-    location: 'Turtle Cove',
-    date: '2023-11-02',
+    status: 'Resolved',
+    imageUrl: 'https://picsum.photos/400/300?random=1',
+    location: 'Sunrise Beach',
+    date: '2023-10-15',
+  },
+  {
+    id: '5',
+    userId: 'user-4',
+    title: 'Unusual algae bloom observed',
+    type: 'Other',
+    status: 'In Review',
+    imageUrl: 'https://picsum.photos/400/300?random=5',
+    location: 'Whispering Bay',
+    date: '2023-11-05',
   },
 ];
 
