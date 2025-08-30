@@ -148,16 +148,27 @@ export default function ProfilePage() {
   
   const profileCompletion = useMemo(() => {
       let score = 0;
-      if (user?.displayName) score += 25;
-      if (user?.photoURL) score += 25;
+      if (user?.displayName && user.displayName !== dummyUser.name) score += 25;
+      if (user?.photoURL && user.photoURL !== dummyUser.avatarUrl) score += 25;
       if (displayLocation) score += 25;
       if (displayBio) score += 25;
       return score;
   }, [user, displayLocation, displayBio]);
 
+  const userBadges = useMemo(() => {
+      const badges = [...dummyUser.badges];
+      if (profileCompletion === 100) {
+          const profileBadge = allBadges.find(b => b.name === 'Profile Pro');
+          if (profileBadge && !badges.some(b => b.name === 'Profile Pro')) {
+              badges.push({name: profileBadge.name, iconUrl: profileBadge.iconUrl});
+          }
+      }
+      return badges;
+  }, [profileCompletion]);
 
-  const unlockedBadgeIds = new Set(dummyUser.badges.map(b => b.name));
-  const displayedBadges = allBadges.slice(0, 3);
+  const unlockedBadgeIds = new Set(userBadges.map(b => b.name));
+  const displayedBadges = allBadges.filter(b => unlockedBadgeIds.has(b.name)).slice(0, 3);
+
 
   return (
     <div className="p-4 pb-20">

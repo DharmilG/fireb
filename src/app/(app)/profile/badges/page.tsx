@@ -5,9 +5,55 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import Image from 'next/image';
 import { Lock, CheckCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/contexts/auth-context';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { useEffect, useMemo, useState } from 'react';
+
+type UserProfile = {
+  location?: string;
+  bio?: string;
+};
 
 export default function BadgesPage() {
-  const unlockedBadgeIds = new Set(dummyUser.badges.map(b => b.name));
+  const { user } = useAuth();
+  const [profileData, setProfileData] = useState<UserProfile>({});
+
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      if (user) {
+        const userDocRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(userDocRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data() as UserProfile;
+          setProfileData(data);
+        }
+      }
+    };
+    fetchProfileData();
+  }, [user]);
+  
+  const profileCompletion = useMemo(() => {
+      let score = 0;
+      if (user?.displayName && user.displayName !== dummyUser.name) score += 25;
+      if (user?.photoURL && user.photoURL !== dummyUser.avatarUrl) score += 25;
+      if (profileData.location) score += 25;
+      if (profileData.bio) score += 25;
+      return score;
+  }, [user, profileData]);
+
+  const userBadges = useMemo(() => {
+      const badges = [...dummyUser.badges];
+      if (profileCompletion === 100) {
+          const profileBadge = allBadges.find(b => b.name === 'Profile Pro');
+          if (profileBadge && !badges.some(b => b.name === 'Profile Pro')) {
+              badges.push({name: profileBadge.name, iconUrl: profileBadge.iconUrl});
+          }
+      }
+      return badges;
+  }, [profileCompletion]);
+
+  const unlockedBadgeIds = new Set(userBadges.map(b => b.name));
 
   return (
     <div className="p-4">

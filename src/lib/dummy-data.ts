@@ -43,6 +43,7 @@ export const allBadges: BadgeInfo[] = [
     { name: 'Photo Journalist', description: 'Submit 10 reports with photos.', iconUrl: '/badge-photo-journalist.svg' },
     { name: 'Community Leader', description: 'Recruit 5 new members.', iconUrl: '/badge-community-leader.svg' },
     { name: 'Coast Guardian', description: 'Submit 50 verified reports.', iconUrl: '/badge-coast-guardian.svg' },
+    { name: 'Profile Pro', description: 'Complete your user profile 100%.', iconUrl: '/badge-profile-pro.svg' },
 ];
 
 export const dummyReports: Report[] = [
