@@ -1,8 +1,11 @@
+'use client';
+
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { dummyLeaderboard } from '@/lib/dummy-data';
 import { Trophy } from 'lucide-react';
+import React, { useMemo } from 'react';
 
 const rankColors: Record<number, string> = {
   1: 'text-yellow-500',
@@ -37,6 +40,19 @@ const LeaderboardList = ({ leaders }: { leaders: typeof dummyLeaderboard }) => (
 );
 
 export default function LeaderboardPage() {
+  const weeklyLeaders = useMemo(() => {
+    // Simulate weekly data by shuffling and adjusting points
+    return [...dummyLeaderboard]
+      .sort(() => Math.random() - 0.5)
+      .map((user, index) => ({
+        ...user,
+        rank: index + 1,
+        points: Math.floor(user.points / 4 + Math.random() * 50), // Simulate lower weekly points
+      }))
+      .sort((a,b) => b.points - a.points) // re-sort after point adjustment
+      .map((user, index) => ({...user, rank: index + 1})); // re-assign rank
+  }, []);
+
   return (
     <div className="p-4">
       <header className="mb-6">
@@ -53,8 +69,7 @@ export default function LeaderboardPage() {
           <LeaderboardList leaders={dummyLeaderboard} />
         </TabsContent>
         <TabsContent value="weekly">
-          {/* Using dummy data for now. In the future, this would be filtered weekly data. */}
-          <LeaderboardList leaders={[...dummyLeaderboard].sort(() => Math.random() - 0.5).map((u, i) => ({...u, rank: i+1}))} />
+          <LeaderboardList leaders={weeklyLeaders} />
         </TabsContent>
       </Tabs>
     </div>
