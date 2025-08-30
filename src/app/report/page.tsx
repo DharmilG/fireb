@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, Camera, Check, Image as ImageIcon, MapPin, Upload } from 'lucide-react';
 import { Logo } from '@/components/logo';
+import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const totalSteps = 4;
 
@@ -25,6 +27,55 @@ export default function ReportPage() {
     type: '',
   });
   const router = useRouter();
+  const { toast } = useToast();
+
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (step === 1) {
+      const getCameraPermission = async () => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          console.error('Camera API not supported');
+          setHasCameraPermission(false);
+          toast({
+            variant: 'destructive',
+            title: 'Camera Not Supported',
+            description: 'Your browser does not support camera access.',
+          });
+          return;
+        }
+
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          setHasCameraPermission(true);
+
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          setHasCameraPermission(false);
+          toast({
+            variant: 'destructive',
+            title: 'Camera Access Denied',
+            description: 'Please enable camera permissions in your browser settings to use this feature.',
+          });
+        }
+      };
+
+      getCameraPermission();
+      
+      return () => {
+        // Stop camera stream when component unmounts or step changes
+        if (videoRef.current && videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach(track => track.stop());
+        }
+      }
+    }
+  }, [step, toast]);
 
   const handleNext = () => setStep((s) => Math.min(s + 1, totalSteps));
   const handleBack = () => {
@@ -36,8 +87,31 @@ export default function ReportPage() {
   };
 
   const handleImageSelect = () => {
+    // This function is for library upload
     setFormData(prev => ({ ...prev, image: 'https://picsum.photos/400/300?random=10' }));
     handleNext();
+  };
+
+  const handleTakePhoto = () => {
+    if (videoRef.current && canvasRef.current && hasCameraPermission) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      if (context) {
+        context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+        const dataUrl = canvas.toDataURL('image/png');
+        setFormData(prev => ({ ...prev, image: dataUrl }));
+        handleNext();
+      }
+    } else {
+        toast({
+            variant: 'destructive',
+            title: 'Camera not ready',
+            description: 'Please grant camera permission to take a photo.',
+        });
+    }
   };
   
   const handleSubmit = () => {
@@ -64,11 +138,22 @@ export default function ReportPage() {
           <div className="text-center space-y-4 flex flex-col items-center">
             <h2 className="text-2xl font-bold font-headline">Upload an Image</h2>
             <p className="text-muted-foreground">A picture is worth a thousand words. Show us what you see.</p>
-            <Card className="w-full max-w-sm h-64 flex flex-col justify-center items-center border-dashed border-2">
-                <ImageIcon className="h-16 w-16 text-muted-foreground/50"/>
+            <Card className="w-full max-w-sm h-64 flex flex-col justify-center items-center border-dashed border-2 overflow-hidden">
+                <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                <canvas ref={canvasRef} className="hidden" />
             </Card>
+
+            {hasCameraPermission === false && (
+                <Alert variant="destructive" className="max-w-sm">
+                    <AlertTitle>Camera Access Required</AlertTitle>
+                    <AlertDescription>
+                        Please allow camera access to use this feature. You might need to change permissions in your browser or system settings.
+                    </AlertDescription>
+                </Alert>
+            )}
+
             <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
-                <Button size="lg" variant="outline" onClick={handleImageSelect}><Camera className="mr-2 h-4 w-4" /> Take Photo</Button>
+                <Button size="lg" onClick={handleTakePhoto} disabled={!hasCameraPermission}><Camera className="mr-2 h-4 w-4" /> Take Photo</Button>
                 <Button size="lg" variant="outline" onClick={handleImageSelect}><Upload className="mr-2 h-4 w-4" /> From Library</Button>
             </div>
           </div>
@@ -78,7 +163,11 @@ export default function ReportPage() {
             <h2 className="text-2xl font-bold font-headline">Tag the Location</h2>
             <p className="text-muted-foreground">Pinpoint the incident on the map or use your current location.</p>
             <Card className="w-full h-80 relative overflow-hidden">
-                <Image src="https://picsum.photos/800/600" data-ai-hint="coastline aerial" alt="Map" fill className="object-cover" />
+                {formData.image ? (
+                   <Image src={formData.image} alt="Incident" fill className="object-cover" />
+                ) : (
+                   <Image src="https://picsum.photos/800/600" data-ai-hint="coastline aerial" alt="Map" fill className="object-cover" />
+                )}
                 <div className="absolute inset-0 flex items-center justify-center">
                     <MapPin className="h-12 w-12 text-destructive animate-bounce" />
                 </div>
@@ -135,3 +224,5 @@ export default function ReportPage() {
     </div>
   );
 }
+
+    
