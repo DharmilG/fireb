@@ -1,21 +1,27 @@
-
 'use client';
 
 import Image from 'next/image';
 import {
   Card,
   CardContent,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { dummyReports, type Report } from '@/lib/dummy-data';
+import { Report } from '@/lib/dummy-data';
 import { cn } from '@/lib/utils';
 import { MapPin } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/auth-context';
-import { useMemo } from 'react';
+import { useEffect, useState } from 'react';
+import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { Skeleton } from '@/components/ui/skeleton';
+import { format } from 'date-fns';
+
+type AppReport = Report & {
+  createdAt?: Timestamp;
+};
 
 const statusColors: Record<Report['status'], string> = {
   Pending: 'bg-yellow-400/20 text-yellow-700 border-yellow-400/50',
@@ -23,11 +29,30 @@ const statusColors: Record<Report['status'], string> = {
   Resolved: 'bg-green-400/20 text-green-700 border-green-400/50',
 };
 
-const ReportList = ({ reports }: { reports: Report[] }) => {
+const ReportList = ({ reports, loading }: { reports: AppReport[], loading: boolean }) => {
+    if (loading) {
+        return (
+            <div className="space-y-4">
+                {[...Array(3)].map((_, i) => (
+                    <Card key={i} className="overflow-hidden shadow-md">
+                        <Skeleton className="h-40 w-full" />
+                        <CardHeader>
+                            <Skeleton className="h-6 w-3/4" />
+                            <Skeleton className="h-4 w-1/2 mt-2" />
+                        </CardHeader>
+                        <CardContent>
+                            <Skeleton className="h-6 w-20" />
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
+        )
+    }
+
     if (reports.length === 0) {
         return (
             <div className="text-center py-10">
-                <p className="text-muted-foreground">You haven't created any reports yet.</p>
+                <p className="text-muted-foreground">No reports found.</p>
             </div>
         )
     }
@@ -67,13 +92,62 @@ const ReportList = ({ reports }: { reports: Report[] }) => {
 
 export default function ReportsPage() {
   const { user } = useAuth();
+  const [myReports, setMyReports] = useState<AppReport[]>([]);
+  const [allReports, setAllReports] = useState<AppReport[]>([]);
+  const [myReportsLoading, setMyReportsLoading] = useState(true);
+  const [allReportsLoading, setAllReportsLoading] = useState(true);
 
-  const myReports = useMemo(() => {
-    // In a real app, the user ID would come from the authenticated user.
-    // Since we are using dummy data, we'll use a hardcoded ID for "John Doe"
-    const currentUserId = "user-1"; 
-    return dummyReports.filter(report => report.userId === currentUserId);
-  }, []);
+  useEffect(() => {
+    const fetchMyReports = async () => {
+      if (!user) return;
+      setMyReportsLoading(true);
+      try {
+        const q = query(
+          collection(db, 'reports'), 
+          where('userId', '==', user.uid),
+          orderBy('createdAt', 'desc')
+        );
+        const querySnapshot = await getDocs(q);
+        const reports = querySnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              ...data,
+              date: data.createdAt ? format(data.createdAt.toDate(), 'yyyy-MM-dd') : 'N/A',
+            } as AppReport;
+        });
+        setMyReports(reports);
+      } catch (error) {
+        console.error("Error fetching user reports: ", error);
+      } finally {
+        setMyReportsLoading(false);
+      }
+    };
+    
+    const fetchAllReports = async () => {
+        setAllReportsLoading(true);
+        try {
+            const q = query(collection(db, 'reports'), orderBy('createdAt', 'desc'));
+            const querySnapshot = await getDocs(q);
+            const reports = querySnapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    ...data,
+                    date: data.createdAt ? format(data.createdAt.toDate(), 'yyyy-MM-dd') : 'N/A',
+                } as AppReport
+            });
+            setAllReports(reports);
+        } catch (error) {
+            console.error("Error fetching all reports: ", error);
+        } finally {
+            setAllReportsLoading(false);
+        }
+    }
+
+    fetchMyReports();
+    fetchAllReports();
+  }, [user]);
 
   return (
     <div className="p-4">
@@ -87,10 +161,10 @@ export default function ReportsPage() {
           <TabsTrigger value="my-reports">My Reports</TabsTrigger>
         </TabsList>
         <TabsContent value="all-reports">
-          <ReportList reports={dummyReports} />
+          <ReportList reports={allReports} loading={allReportsLoading} />
         </TabsContent>
         <TabsContent value="my-reports">
-          <ReportList reports={myReports} />
+          <ReportList reports={myReports} loading={myReportsLoading} />
         </TabsContent>
       </Tabs>
     </div>

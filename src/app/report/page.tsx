@@ -11,11 +11,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, Camera, Check, Image as ImageIcon, Loader2, MapPin, Upload, ShieldX, Bot } from 'lucide-react';
-import { Logo } from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { verifyReport } from '@/ai/flows/verify-report-flow';
 import type { VerifyReportOutput } from '@/ai/types/report-verification';
+import { useAuth } from '@/contexts/auth-context';
+import { db, storage } from '@/lib/firebase';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 
 
 const totalSteps = 4;
@@ -29,11 +32,13 @@ export default function ReportPage() {
     description: '',
     type: '',
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationResult, setVerificationResult] = useState<VerifyReportOutput | null>(null);
 
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useAuth();
 
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -88,11 +93,6 @@ export default function ReportPage() {
       setStep((s) => Math.max(s - 1, 1));
     }
   };
-
-  const handleImageSelect = () => {
-    setFormData(prev => ({ ...prev, image: 'https://picsum.photos/400/300?random=10' }));
-    handleNext();
-  };
   
   const stopCameraStream = () => {
       if (videoRef.current && videoRef.current.srcObject) {
@@ -125,12 +125,26 @@ export default function ReportPage() {
     }
   };
   
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (loadEvent) => {
+        if (loadEvent.target && typeof loadEvent.target.result === 'string') {
+          setFormData(prev => ({ ...prev, image: loadEvent.target.result as string }));
+          handleNext();
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
   const handleSubmit = async () => {
       if (!formData.image || !formData.title || !formData.type) {
           toast({
               variant: 'destructive',
               title: 'Missing Information',
-              description: 'Please fill out the title and type before submitting.',
+              description: 'Please fill out all fields before submitting.',
           });
           return;
       }
@@ -142,17 +156,51 @@ export default function ReportPage() {
             description: formData.description,
         });
         setVerificationResult(result);
+        
+        // Even if flagged, we save the report for manual review.
+        await saveReport(result);
+        
       } catch (error) {
-          console.error('Verification failed', error);
+          console.error('Verification or saving failed', error);
           toast({
               variant: 'destructive',
-              title: 'Verification Failed',
-              description: 'Could not verify the report. Please try again.',
+              title: 'Submission Failed',
+              description: 'Could not submit the report. Please try again.',
           });
       } finally {
         setIsVerifying(false);
+        setIsSubmitting(false); // Ensure this is false
         handleNext();
       }
+  }
+
+  const saveReport = async (verification: VerifyReportOutput) => {
+    if (!user || !formData.image) return;
+    setIsSubmitting(true);
+
+    try {
+        // 1. Upload image to Firebase Storage
+        const storageRef = ref(storage, `reports/${user.uid}/${Date.now()}.png`);
+        const uploadResult = await uploadString(storageRef, formData.image, 'data_url');
+        const imageUrl = await getDownloadURL(uploadResult.ref);
+
+        // 2. Save report to Firestore
+        await addDoc(collection(db, 'reports'), {
+            userId: user.uid,
+            title: formData.title,
+            description: formData.description,
+            type: formData.type,
+            location: formData.location,
+            imageUrl,
+            status: 'Pending',
+            createdAt: serverTimestamp(),
+            verification: verification,
+        });
+
+    } catch (error) {
+        console.error("Error saving report: ", error);
+        throw error; // Re-throw to be caught by handleSubmit
+    }
   }
 
   const progress = (step / totalSteps) * 100;
@@ -162,7 +210,7 @@ export default function ReportPage() {
   return (
     <div className="flex h-full flex-col bg-muted/20">
       <header className="flex items-center gap-2 border-b bg-background p-4">
-        <Button variant="ghost" size="icon" onClick={handleBack} disabled={isVerifying}>
+        <Button variant="ghost" size="icon" onClick={handleBack} disabled={isVerifying || isSubmitting}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-grow">
@@ -192,7 +240,12 @@ export default function ReportPage() {
 
             <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
                 <Button size="lg" onClick={handleTakePhoto} disabled={!hasCameraPermission}><Camera className="mr-2 h-4 w-4" /> Take Photo</Button>
-                <Button size="lg" variant="outline" onClick={handleImageSelect}><Upload className="mr-2 h-4 w-4" /> From Library</Button>
+                <label htmlFor="file-upload" className="w-full">
+                  <Button asChild size="lg" variant="outline" className="w-full cursor-pointer">
+                    <span><Upload className="mr-2 h-4 w-4" /> From Library</span>
+                  </Button>
+                </label>
+                <input id="file-upload" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
             </div>
           </div>
         )}
@@ -215,34 +268,34 @@ export default function ReportPage() {
             <h2 className="text-2xl font-bold font-headline text-center">Add Details</h2>
             <div className="space-y-2">
               <Label htmlFor="title">Title</Label>
-              <Input id="title" placeholder="e.g., Plastic waste on beach" value={formData.title} onChange={(e) => setFormData(p => ({...p, title: e.target.value}))} disabled={isVerifying}/>
+              <Input id="title" placeholder="e.g., Plastic waste on beach" value={formData.title} onChange={(e) => setFormData(p => ({...p, title: e.target.value}))} disabled={isVerifying || isSubmitting}/>
             </div>
             <div className="space-y-2">
               <Label htmlFor="type">Incident Type</Label>
-              <Select onValueChange={(value) => setFormData(p => ({...p, type: value}))} disabled={isVerifying}>
+              <Select onValueChange={(value) => setFormData(p => ({...p, type: value}))} disabled={isVerifying || isSubmitting}>
                 <SelectTrigger id="type">
                   <SelectValue placeholder="Select a type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pollution">Pollution</SelectItem>
-                  <SelectItem value="deforestation">Deforestation</SelectItem>
-                  <SelectItem value="illegal-fishing">Illegal Fishing</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  <SelectItem value="Pollution">Pollution</SelectItem>
+                  <SelectItem value="Deforestation">Deforestation</SelectItem>
+                  <SelectItem value="Illegal Fishing">Illegal Fishing</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
-              <Textarea id="description" placeholder="Provide more details about the incident." value={formData.description} onChange={(e) => setFormData(p => ({...p, description: e.target.value}))} disabled={isVerifying}/>
+              <Textarea id="description" placeholder="Provide more details about the incident." value={formData.description} onChange={(e) => setFormData(p => ({...p, description: e.target.value}))} disabled={isVerifying || isSubmitting}/>
             </div>
-            <Button size="lg" className="w-full" onClick={handleSubmit} disabled={isVerifying}>
-                {isVerifying ? (
+            <Button size="lg" className="w-full" onClick={handleSubmit} disabled={isVerifying || isSubmitting}>
+                {isVerifying || isSubmitting ? (
                     <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Verifying...
+                        {isVerifying ? 'Verifying...' : 'Submitting...'}
                     </>
                 ) : (
-                    'Review Report'
+                    'Submit Report'
                 )}
             </Button>
           </div>
@@ -263,7 +316,7 @@ export default function ReportPage() {
                       <ShieldX className="h-12 w-12 text-destructive" />
                     </div>
                     <h2 className="text-2xl font-bold font-headline">Report Flagged</h2>
-                    <p className="text-muted-foreground mb-6">Our AI system flagged this report for the following reasons. It will be manually reviewed.</p>
+                    <p className="text-muted-foreground mb-6">Our AI system flagged this report for the following reasons. It has been submitted for manual review.</p>
                 </>
             )}
 
@@ -283,9 +336,16 @@ export default function ReportPage() {
                            <AlertDescription>{verificationResult.aiGeneratedReason}</AlertDescription>
                         </Alert>
                     )}
-                    {!isReportOk && <div className="pt-2"/>}
-                    <p><strong>Title:</strong> {formData.title || 'Plastic waste on beach'}</p>
-                    <p><strong>Type:</strong> {formData.type || 'Pollution'}</p>
+                    {(!verificationResult?.isSpam && !verificationResult?.isAiGenerated) && (
+                      <Alert>
+                        <Check className="h-4 w-4" />
+                        <AlertTitle>Report Verified</AlertTitle>
+                        <AlertDescription>This report passed automatic verification.</AlertDescription>
+                      </Alert>
+                    )}
+                    <div className="pt-2"/>
+                    <p><strong>Title:</strong> {formData.title}</p>
+                    <p><strong>Type:</strong> {formData.type}</p>
                     <p><strong>Location:</strong> {formData.location}</p>
                 </CardContent>
             </Card>
