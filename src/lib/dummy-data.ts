@@ -28,6 +28,8 @@ export type User = {
   email: string;
   avatarUrl: string;
   points: number;
+  location?: string;
+  bio?: string;
   badges: {
     name: string;
     iconUrl: string;
@@ -90,6 +92,8 @@ export const dummyUser: User = {
   email: 'john.doe@email.com',
   avatarUrl: 'https://i.pravatar.cc/150?u=a042581f4e29026709d',
   points: 450,
+  location: 'Coastal City, USA',
+  bio: 'Passionate about marine conservation and keeping our beaches clean.',
   badges: [
     { name: 'First Report', iconUrl: '/badge-first-report.svg' },
     { name: 'Cleanup Champion', iconUrl: '/badge-cleanup.svg' },

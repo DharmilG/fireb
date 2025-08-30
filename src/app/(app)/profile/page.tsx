@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { dummyUser, allBadges } from '@/lib/dummy-data';
-import { Star, LogOut, Edit, ChevronRight, Upload } from 'lucide-react';
+import { Star, LogOut, Edit, ChevronRight, Upload, MapPin } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
-import { auth, storage } from '@/lib/firebase';
+import { auth, storage, db } from '@/lib/firebase';
 import { signOut, updateProfile } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import {
@@ -24,9 +24,16 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { Textarea } from '@/components/ui/textarea';
+
+type UserProfile = {
+  location?: string;
+  bio?: string;
+};
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -39,6 +46,26 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [profileData, setProfileData] = useState<UserProfile>({});
+  const [newLocation, setNewLocation] = useState('');
+  const [newBio, setNewBio] = useState('');
+
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      if (user) {
+        const userDocRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(userDocRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data() as UserProfile;
+          setProfileData(data);
+          setNewLocation(data.location || '');
+          setNewBio(data.bio || '');
+        }
+      }
+    };
+    fetchProfileData();
+  }, [user]);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -58,11 +85,16 @@ export default function ProfilePage() {
       }
 
       await updateProfile(user, { displayName: newName, photoURL });
-      
+
+      const userDocRef = doc(db, 'users', user.uid);
+      await setDoc(userDocRef, { location: newLocation, bio: newBio }, { merge: true });
+
       toast({
         title: 'Profile Updated',
         description: 'Your profile has been successfully updated.',
       });
+      
+      setProfileData({ location: newLocation, bio: newBio });
       resetEditState();
       setIsDialogOpen(false); 
     } catch (error: any) {
@@ -88,6 +120,8 @@ export default function ProfilePage() {
     setNewName(user?.displayName || '');
     setNewPhoto(null);
     setPhotoPreviewUrl(null);
+    setNewLocation(profileData.location || '');
+    setNewBio(profileData.bio || '');
   }
 
   const handleDialogClose = (open: boolean) => {
@@ -100,13 +134,14 @@ export default function ProfilePage() {
   const displayName = user?.displayName || dummyUser.name;
   const displayEmail = user?.email || dummyUser.email;
   const displayAvatarUrl = user?.photoURL || dummyUser.avatarUrl;
+  const displayLocation = profileData.location || dummyUser.location;
+  const displayBio = profileData.bio || dummyUser.bio;
 
   const unlockedBadgeIds = new Set(dummyUser.badges.map(b => b.name));
   const displayedBadges = allBadges.slice(0, 3);
 
-
   return (
-    <div className="p-4">
+    <div className="p-4 pb-20">
       <header className="flex flex-col items-center text-center pt-8 pb-6">
         <Avatar className="h-24 w-24 mb-4 border-4 border-primary/50">
           <AvatarImage src={displayAvatarUrl} alt={displayName} />
@@ -122,7 +157,7 @@ export default function ProfilePage() {
                         <Edit className="h-5 w-5 text-muted-foreground" />
                     </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="sm:max-w-[480px]">
                     <DialogHeader>
                         <DialogTitle>Edit Profile</DialogTitle>
                         <DialogDescription>
@@ -147,6 +182,18 @@ export default function ProfilePage() {
                             </Label>
                             <Input id="name" value={newName} onChange={(e) => setNewName(e.target.value)} className="col-span-3" />
                         </div>
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="location" className="text-right">
+                                Location
+                            </Label>
+                            <Input id="location" value={newLocation} onChange={(e) => setNewLocation(e.target.value)} className="col-span-3" placeholder="e.g., Coastal City, USA" />
+                        </div>
+                         <div className="grid grid-cols-4 items-start gap-4">
+                            <Label htmlFor="bio" className="text-right pt-2">
+                                Bio
+                            </Label>
+                            <Textarea id="bio" value={newBio} onChange={(e) => setNewBio(e.target.value)} className="col-span-3" placeholder="Tell us about yourself" />
+                        </div>
                     </div>
                     <DialogFooter>
                         <DialogClose asChild>
@@ -160,7 +207,21 @@ export default function ProfilePage() {
             </Dialog>
         </div>
         <p className="text-muted-foreground">{displayEmail}</p>
+        {displayLocation && (
+            <div className="flex items-center text-sm text-muted-foreground mt-2">
+                <MapPin className="h-4 w-4 mr-1.5" />
+                <span>{displayLocation}</span>
+            </div>
+        )}
       </header>
+      
+      {displayBio && (
+          <Card className="mb-4 text-left shadow-md">
+            <CardContent className="p-4">
+              <p className="text-sm italic text-muted-foreground">{displayBio}</p>
+            </CardContent>
+          </Card>
+      )}
 
       <Card className="mb-4 text-center shadow-md">
         <CardContent className="p-4">
@@ -174,7 +235,7 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card className="shadow-md">
+      <Card className="shadow-md mb-4">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="font-headline text-lg">My Badges</CardTitle>
           <Link href="/profile/badges" passHref>

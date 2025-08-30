@@ -4,6 +4,11 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { LayoutGrid, ScrollText, Trophy, User } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
+import { useEffect, useState } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+
 
 const navItems = [
   { href: '/home', label: 'Home', icon: LayoutGrid },
@@ -14,6 +19,40 @@ const navItems = [
 
 export function BottomNav() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const [isProfileIncomplete, setIsProfileIncomplete] = useState(false);
+
+  useEffect(() => {
+    const checkProfileCompleteness = async () => {
+      if (user) {
+        // A display name is the basic requirement.
+        if (!user.displayName) {
+            setIsProfileIncomplete(true);
+            return;
+        }
+
+        // For a more detailed check, you can fetch user's profile document from Firestore
+        // This is an example, assuming you store extra profile info in a 'users' collection
+        const userDocRef = doc(db, "users", user.uid);
+        const userDoc = await getDoc(userDocRef);
+        if (userDoc.exists()) {
+            const userData = userDoc.data();
+            // Check for other fields like location or bio
+            if (!userData.location) {
+                setIsProfileIncomplete(true);
+                return;
+            }
+        } else {
+            // If the user document doesn't even exist, profile is incomplete
+            setIsProfileIncomplete(true);
+            return;
+        }
+      }
+      setIsProfileIncomplete(false);
+    };
+
+    checkProfileCompleteness();
+  }, [user]);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background/95 backdrop-blur-sm">
@@ -22,12 +61,14 @@ export function BottomNav() {
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
+            const isProfileTab = item.label === 'Profile';
+
             return (
               <Link
                 key={item.label}
                 href={item.href}
                 className={cn(
-                  'flex flex-col items-center gap-1 p-2 rounded-md text-muted-foreground transition-colors duration-200',
+                  'relative flex flex-col items-center gap-1 p-2 rounded-md text-muted-foreground transition-colors duration-200',
                   isActive ? 'text-primary' : 'hover:text-primary/80'
                 )}
               >
@@ -38,6 +79,9 @@ export function BottomNav() {
                   fillOpacity={isActive ? 0.15 : 0}
                 />
                 <span className="text-xs font-medium">{item.label}</span>
+                {isProfileTab && isProfileIncomplete && (
+                    <span className="absolute top-1 right-1 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-background" />
+                )}
               </Link>
             );
           })}
