@@ -13,7 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, Camera, Check, Image as ImageIcon, Loader2, MapPin, Upload, ShieldX, Bot } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { useAuth } from '@/contexts/auth-context';
+import { verifyReport, type VerifyReportOutput } from '@/ai/flows/verify-report-flow';
 
 
 const totalSteps = 4;
@@ -27,11 +27,11 @@ export default function ReportPage() {
     description: '',
     type: '',
   });
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<VerifyReportOutput | null>(null);
 
   const router = useRouter();
   const { toast } = useToast();
-  const { user } = useAuth();
 
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -141,13 +141,26 @@ export default function ReportPage() {
           });
           return;
       }
-      setIsSubmitting(true);
+      setIsVerifying(true);
       
-      // Simulate submission
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setIsSubmitting(false);
-      handleNext();
+      try {
+        const result = await verifyReport({
+            title: formData.title,
+            description: formData.description,
+            photoDataUri: formData.image,
+        });
+        setVerificationResult(result);
+        handleNext();
+      } catch(error) {
+        console.error("Verification failed", error);
+        toast({
+            variant: 'destructive',
+            title: 'Verification Failed',
+            description: 'Something went wrong while verifying your report. Please try again.',
+        });
+      } finally {
+        setIsVerifying(false);
+      }
   }
 
   const progress = (step / totalSteps) * 100;
@@ -155,7 +168,7 @@ export default function ReportPage() {
   return (
     <div className="flex h-full flex-col bg-muted/20">
       <header className="flex items-center gap-2 border-b bg-background p-4">
-        <Button variant="ghost" size="icon" onClick={handleBack} disabled={isSubmitting}>
+        <Button variant="ghost" size="icon" onClick={handleBack} disabled={isVerifying}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-grow">
@@ -213,11 +226,11 @@ export default function ReportPage() {
             <h2 className="text-2xl font-bold font-headline text-center">Add Details</h2>
             <div className="space-y-2">
               <Label htmlFor="title">Title</Label>
-              <Input id="title" placeholder="e.g., Plastic waste on beach" value={formData.title} onChange={(e) => setFormData(p => ({...p, title: e.target.value}))} disabled={isSubmitting}/>
+              <Input id="title" placeholder="e.g., Plastic waste on beach" value={formData.title} onChange={(e) => setFormData(p => ({...p, title: e.target.value}))} disabled={isVerifying}/>
             </div>
             <div className="space-y-2">
               <Label htmlFor="type">Incident Type</Label>
-              <Select onValueChange={(value) => setFormData(p => ({...p, type: value}))} disabled={isSubmitting}>
+              <Select onValueChange={(value) => setFormData(p => ({...p, type: value}))} disabled={isVerifying}>
                 <SelectTrigger id="type">
                   <SelectValue placeholder="Select a type" />
                 </SelectTrigger>
@@ -231,16 +244,16 @@ export default function ReportPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
-              <Textarea id="description" placeholder="Provide more details about the incident." value={formData.description} onChange={(e) => setFormData(p => ({...p, description: e.target.value}))} disabled={isSubmitting}/>
+              <Textarea id="description" placeholder="Provide more details about the incident." value={formData.description} onChange={(e) => setFormData(p => ({...p, description: e.target.value}))} disabled={isVerifying}/>
             </div>
-            <Button size="lg" className="w-full" onClick={handleSubmit} disabled={isSubmitting}>
-                {isSubmitting ? (
+            <Button size="lg" className="w-full" onClick={handleSubmit} disabled={isVerifying}>
+                {isVerifying ? (
                     <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Submitting...
+                        Verifying...
                     </>
                 ) : (
-                    'Submit Report'
+                    'Verify & Submit Report'
                 )}
             </Button>
           </div>
@@ -251,15 +264,29 @@ export default function ReportPage() {
                 <Check className="h-12 w-12 text-green-600" />
             </div>
             <h2 className="text-2xl font-bold font-headline">Thank You!</h2>
-            <p className="text-muted-foreground mb-6">Your report has been submitted and is being verified. We appreciate your help in protecting our coasts.</p>
+            <p className="text-muted-foreground mb-6">Your report has been submitted. We appreciate your help in protecting our coasts.</p>
 
-            <Card className="w-full max-w-sm text-left mb-6">
-                <CardContent className="p-4 space-y-3">
-                    <p><strong>Title:</strong> {formData.title}</p>
-                    <p><strong>Type:</strong> {formData.type}</p>
-                    <p><strong>Location:</strong> {formData.location}</p>
-                </CardContent>
-            </Card>
+            {verificationResult && (
+                 <Card className="w-full max-w-sm text-left mb-6">
+                    <CardContent className="p-4 space-y-4">
+                        <h3 className="font-semibold font-headline">Verification Details</h3>
+                        <div className="flex items-start gap-2">
+                            <ShieldX className={`h-5 w-5 mt-0.5 ${verificationResult.isSpam ? 'text-destructive' : 'text-green-600' }`} />
+                            <div>
+                                <p><strong>Spam Check:</strong> {verificationResult.isSpam ? 'Likely Spam' : 'Looks Clear'}</p>
+                                <p className="text-xs text-muted-foreground">{verificationResult.spamReason}</p>
+                            </div>
+                        </div>
+                         <div className="flex items-start gap-2">
+                            <Bot className={`h-5 w-5 mt-0.5 ${verificationResult.isAiGenerated ? 'text-destructive' : 'text-green-600' }`} />
+                            <div>
+                                <p><strong>AI Image Check:</strong> {verificationResult.isAiGenerated ? 'AI-Generated' : 'Likely Authentic'}</p>
+                                <p className="text-xs text-muted-foreground">{verificationResult.aiGeneratedReason}</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
             <Button size="lg" className="w-full max-w-sm" onClick={() => router.push('/home')}>Back to Home</Button>
           </div>
         )}
