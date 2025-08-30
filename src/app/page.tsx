@@ -1,3 +1,6 @@
+import { redirect } from 'next/navigation';
+
 export default function Home() {
-  return <></>;
+  redirect('/onboarding/1');
+  return null;
 }
