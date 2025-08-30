@@ -25,25 +25,25 @@ const IncidentIcon = ({ type }: { type: string }) => {
 
 export default function HomePage() {
   return (
-    <div className="flex h-full flex-col">
-      <header className="p-4">
+    <div className="container mx-auto px-4 py-8">
+      <header className="mb-8">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-muted-foreground">Welcome back,</p>
-            <h1 className="text-2xl font-bold font-headline text-primary">{dummyUser.name}</h1>
+            <h1 className="text-3xl font-bold font-headline text-primary">{dummyUser.name}</h1>
           </div>
-          <Avatar>
+          <Avatar className="h-12 w-12">
             <AvatarImage src={dummyUser.avatarUrl} alt={dummyUser.name} />
             <AvatarFallback>{dummyUser.name.charAt(0)}</AvatarFallback>
           </Avatar>
         </div>
       </header>
       
-      <div className="flex-grow p-4 pt-0">
-        <h2 className="text-lg font-semibold font-headline mb-2">Incidents Overview</h2>
+      <div className="mb-8">
+        <h2 className="text-2xl font-semibold font-headline mb-4">Incidents Overview</h2>
         <Card className="overflow-hidden">
           <CardContent className="p-0">
-            <div className="relative h-96 w-full">
+            <div className="relative aspect-[4/3] w-full">
               <Image
                 src="https://picsum.photos/800/600"
                 data-ai-hint="coastline aerial"
@@ -68,9 +68,9 @@ export default function HomePage() {
         </Card>
       </div>
 
-      <Link href="/report" passHref className="absolute bottom-20 right-4 z-10">
-        <Button size="icon" className="h-14 w-14 rounded-full bg-accent shadow-lg hover:bg-accent/90">
-          <Plus className="h-8 w-8" />
+      <Link href="/report" passHref className="fixed bottom-24 right-6 z-10">
+        <Button size="icon" className="h-16 w-16 rounded-full bg-accent shadow-lg hover:bg-accent/90">
+          <Plus className="h-9 w-9" />
         </Button>
       </Link>
     </div>
