@@ -1,3 +1,5 @@
+'use client';
+
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -5,6 +7,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { dummyUser } from '@/lib/dummy-data';
 import { AlertTriangle, Plus, ShieldAlert, Waves } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useAuth } from '@/contexts/auth-context';
 
 const incidents = [
   { id: 1, type: 'Pollution', position: { top: '25%', left: '40%' } },
@@ -24,17 +27,22 @@ const IncidentIcon = ({ type }: { type: string }) => {
 };
 
 export default function HomePage() {
+  const { user } = useAuth();
+
+  const displayName = user?.displayName || dummyUser.name;
+  const displayAvatarUrl = user?.photoURL || dummyUser.avatarUrl;
+
   return (
     <div className="container mx-auto px-4 py-8">
       <header className="mb-8">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm text-muted-foreground">Welcome back,</p>
-            <h1 className="text-3xl font-bold font-headline text-primary">{dummyUser.name}</h1>
+            <h1 className="text-3xl font-bold font-headline text-primary">{displayName}</h1>
           </div>
           <Avatar className="h-12 w-12">
-            <AvatarImage src={dummyUser.avatarUrl} alt={dummyUser.name} />
-            <AvatarFallback>{dummyUser.name.charAt(0)}</AvatarFallback>
+            <AvatarImage src={displayAvatarUrl} alt={displayName} />
+            <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
           </Avatar>
         </div>
       </header>

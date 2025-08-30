@@ -1,3 +1,5 @@
+'use client';
+
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -6,19 +8,36 @@ import { Separator } from '@/components/ui/separator';
 import { dummyUser } from '@/lib/dummy-data';
 import { Star, LogOut } from 'lucide-react';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/auth-context';
+import { auth } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
 export default function ProfilePage() {
+  const { user } = useAuth();
+  const router = useRouter();
+  
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/login');
+  };
+  
+  const displayName = user?.displayName || dummyUser.name;
+  const displayEmail = user?.email || dummyUser.email;
+  const displayAvatarUrl = user?.photoURL || dummyUser.avatarUrl;
+
+
   return (
     <div className="p-4">
       <header className="flex flex-col items-center text-center pt-8 pb-6">
         <Avatar className="h-24 w-24 mb-4 border-4 border-primary/50">
-          <AvatarImage src={dummyUser.avatarUrl} alt={dummyUser.name} />
+          <AvatarImage src={displayAvatarUrl} alt={displayName} />
           <AvatarFallback className="text-3xl">
-            {dummyUser.name.charAt(0)}
+            {displayName.charAt(0)}
           </AvatarFallback>
         </Avatar>
-        <h1 className="text-2xl font-bold font-headline">{dummyUser.name}</h1>
-        <p className="text-muted-foreground">{dummyUser.email}</p>
+        <h1 className="text-2xl font-bold font-headline">{displayName}</h1>
+        <p className="text-muted-foreground">{displayEmail}</p>
       </header>
 
       <Card className="mb-4 text-center shadow-md">
@@ -52,12 +71,10 @@ export default function ProfilePage() {
       </Card>
 
       <div className="mt-6">
-        <Link href="/login" passHref>
-          <Button variant="ghost" className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10">
+          <Button onClick={handleLogout} variant="ghost" className="w-full justify-start text-destructive hover:text-destructive hover:bg-destructive/10">
             <LogOut className="mr-2 h-4 w-4" />
             Log Out
           </Button>
-        </Link>
       </div>
     </div>
   );

@@ -14,13 +14,60 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Logo } from '@/components/logo';
+import { auth } from '@/lib/firebase';
+import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { useToast } from '@/hooks/use-toast';
+import { useState } from 'react';
 
 export default function Login() {
   const router = useRouter();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(false);
 
-  const handleAuth = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    router.push('/home');
+    setLoading(true);
+    const form = e.currentTarget;
+    const email = (form.elements.namedItem('email-login') as HTMLInputElement).value;
+    const password = (form.elements.namedItem('password-login') as HTMLInputElement).value;
+    
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      router.push('/home');
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Login Failed',
+        description: error.message,
+      });
+    } finally {
+        setLoading(false);
+    }
+  };
+  
+  const handleSignUp = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+    const form = e.currentTarget;
+    const name = (form.elements.namedItem('name-signup') as HTMLInputElement).value;
+    const email = (form.elements.namedItem('email-signup') as HTMLInputElement).value;
+    const password = (form.elements.namedItem('password-signup') as HTMLInputElement).value;
+
+    try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        if (userCredential.user) {
+            await updateProfile(userCredential.user, { displayName: name });
+        }
+        router.push('/home');
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Sign Up Failed',
+            description: error.message,
+        });
+    } finally {
+        setLoading(false);
+    }
   };
 
   return (
@@ -35,7 +82,7 @@ export default function Login() {
             <TabsTrigger value="signup">Sign Up</TabsTrigger>
           </TabsList>
           <TabsContent value="login">
-            <form onSubmit={handleAuth}>
+            <form onSubmit={handleLogin}>
               <Card>
                 <CardHeader>
                   <CardTitle className="font-headline">Welcome Back</CardTitle>
@@ -46,21 +93,23 @@ export default function Login() {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="email-login">Email</Label>
-                    <Input id="email-login" type="email" placeholder="m@example.com" required />
+                    <Input id="email-login" type="email" placeholder="m@example.com" required disabled={loading}/>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="password-login">Password</Label>
-                    <Input id="password-login" type="password" required />
+                    <Input id="password-login" type="password" required disabled={loading}/>
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90">Login</Button>
+                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={loading}>
+                    {loading ? 'Logging in...' : 'Login'}
+                  </Button>
                 </CardFooter>
               </Card>
             </form>
           </TabsContent>
           <TabsContent value="signup">
-            <form onSubmit={handleAuth}>
+            <form onSubmit={handleSignUp}>
               <Card>
                 <CardHeader>
                   <CardTitle className="font-headline">Create an Account</CardTitle>
@@ -71,19 +120,21 @@ export default function Login() {
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="name-signup">Name</Label>
-                    <Input id="name-signup" placeholder="John Doe" required />
+                    <Input id="name-signup" placeholder="John Doe" required disabled={loading}/>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email-signup">Email</Label>
-                    <Input id="email-signup" type="email" placeholder="m@example.com" required />
+                    <Input id="email-signup" type="email" placeholder="m@example.com" required disabled={loading}/>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="password-signup">Password</Label>
-                    <Input id="password-signup" type="password" required />
+                    <Input id="password-signup" type="password" required minLength={6} disabled={loading}/>
                   </div>
                 </CardContent>
                 <CardFooter>
-                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90">Sign Up</Button>
+                  <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={loading}>
+                    {loading ? 'Signing up...' : 'Sign Up'}
+                  </Button>
                 </CardFooter>
               </Card>
             </form>
