@@ -5,8 +5,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { dummyUser } from '@/lib/dummy-data';
-import { Star, LogOut, Edit } from 'lucide-react';
+import { dummyUser, allBadges } from '@/lib/dummy-data';
+import { Star, LogOut, Edit, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { auth } from '@/lib/firebase';
@@ -51,8 +51,6 @@ export default function ProfilePage() {
         title: 'Profile Updated',
         description: 'Your name has been successfully updated.',
       });
-      // This will force a re-render with the new name if the auth context updates
-      // Alternatively, you could update state locally.
       setIsDialogOpen(false); 
     } catch (error: any) {
       toast({
@@ -68,6 +66,9 @@ export default function ProfilePage() {
   const displayName = user?.displayName || dummyUser.name;
   const displayEmail = user?.email || dummyUser.email;
   const displayAvatarUrl = user?.photoURL || dummyUser.avatarUrl;
+
+  const unlockedBadgeIds = new Set(dummyUser.badges.map(b => b.name));
+  const displayedBadges = allBadges.slice(0, 3);
 
 
   return (
@@ -129,14 +130,20 @@ export default function ProfilePage() {
       </Card>
 
       <Card className="shadow-md">
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="font-headline text-lg">My Badges</CardTitle>
+          <Link href="/profile/badges" passHref>
+            <Button variant="ghost" size="sm">
+              View all
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </Link>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-4 text-center">
-            {dummyUser.badges.map((badge) => (
+            {displayedBadges.map((badge) => (
               <div key={badge.name} className="flex flex-col items-center gap-2">
-                <div className="relative h-16 w-16">
+                <div className={`relative h-16 w-16 ${!unlockedBadgeIds.has(badge.name) ? 'opacity-30 grayscale' : ''}`}>
                   <Image src={badge.iconUrl} alt={badge.name} fill />
                 </div>
                 <p className="text-xs font-medium text-muted-foreground">{badge.name}</p>

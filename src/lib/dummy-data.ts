@@ -16,6 +16,12 @@ export type LeaderboardUser = {
   points: number;
 };
 
+export type BadgeInfo = {
+  name: string;
+  description: string;
+  iconUrl: string;
+};
+
 export type User = {
   id: string;
   name: string;
@@ -27,6 +33,15 @@ export type User = {
     iconUrl: string;
   }[];
 };
+
+export const allBadges: BadgeInfo[] = [
+    { name: 'First Report', description: 'Submit your first incident report.', iconUrl: '/badge-first-report.svg' },
+    { name: 'Cleanup Champion', description: 'Participate in 3 cleanup events.', iconUrl: '/badge-cleanup.svg' },
+    { name: 'Top Contributor', description: 'Reach the top 10 on the leaderboard.', iconUrl: '/badge-top-contributor.svg' },
+    { name: 'Photo Journalist', description: 'Submit 10 reports with photos.', iconUrl: '/badge-photo-journalist.svg' },
+    { name: 'Community Leader', description: 'Recruit 5 new members.', iconUrl: '/badge-community-leader.svg' },
+    { name: 'Coast Guardian', description: 'Submit 50 verified reports.', iconUrl: '/badge-coast-guardian.svg' },
+];
 
 export const dummyReports: Report[] = [
   {
@@ -78,6 +93,5 @@ export const dummyUser: User = {
   badges: [
     { name: 'First Report', iconUrl: '/badge-first-report.svg' },
     { name: 'Cleanup Champion', iconUrl: '/badge-cleanup.svg' },
-    { name: 'Top Contributor', iconUrl: '/badge-top-contributor.svg' },
   ],
 };
