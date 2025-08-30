@@ -4,12 +4,12 @@ import { getAuth } from "firebase/auth";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "FAKE_API_KEY",
-  authDomain: "FAKE_AUTH_DOMAIN",
-  projectId: "FAKE_PROJECT_ID",
-  storageBucket: "FAKE_STORAGE_BUCKET",
-  messagingSenderId: "FAKE_MESSAGING_SENDER_ID",
-  appId: "FAKE_APP_ID"
+  apiKey: "AIzaSyBgEnwRwhxfLlZaZEqd7zmBWorcFtQVEao",
+  authDomain: "coast-watcher.firebaseapp.com",
+  projectId: "coast-watcher",
+  storageBucket: "coast-watcher.firebasestorage.app",
+  messagingSenderId: "1072524054266",
+  appId: "1:1072524054266:web:4cdbd4d380e9532036c343"
 };
 
 // Initialize Firebase
