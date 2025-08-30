@@ -99,7 +99,10 @@ export default function ReportsPage() {
 
   useEffect(() => {
     const fetchMyReports = async () => {
-      if (!user) return;
+      if (!user) {
+        setMyReportsLoading(false);
+        return;
+      }
       setMyReportsLoading(true);
       try {
         const q = query(
@@ -108,7 +111,7 @@ export default function ReportsPage() {
           orderBy('createdAt', 'desc')
         );
         const querySnapshot = await getDocs(q);
-        let reports = querySnapshot.docs.map(doc => {
+        const reports = querySnapshot.docs.map(doc => {
             const data = doc.data();
             return {
               id: doc.id,
@@ -117,15 +120,10 @@ export default function ReportsPage() {
             } as AppReport;
         });
         
-        if(reports.length === 0) {
-            reports = dummyReports.filter(r => r.userId === user.uid) as AppReport[];
-        }
-
         setMyReports(reports);
       } catch (error) {
         console.error("Error fetching user reports: ", error);
-        // Fallback to dummy data on error
-        setMyReports(dummyReports.filter(r => r.userId === user.uid) as AppReport[]);
+        setMyReports([]);
       } finally {
         setMyReportsLoading(false);
       }
@@ -136,7 +134,7 @@ export default function ReportsPage() {
         try {
             const q = query(collection(db, 'reports'), orderBy('createdAt', 'desc'));
             const querySnapshot = await getDocs(q);
-            let reports = querySnapshot.docs.map(doc => {
+            const reports = querySnapshot.docs.map(doc => {
                 const data = doc.data();
                 return {
                     id: doc.id,
@@ -144,26 +142,16 @@ export default function ReportsPage() {
                     date: data.createdAt ? format(data.createdAt.toDate(), 'yyyy-MM-dd') : 'N/A',
                 } as AppReport
             });
-            if (reports.length === 0) {
-                reports = dummyReports as AppReport[];
-            }
             setAllReports(reports);
         } catch (error) {
             console.error("Error fetching all reports: ", error);
-            // Fallback to dummy data on error
-            setAllReports(dummyReports as AppReport[]);
+            setAllReports([]);
         } finally {
             setAllReportsLoading(false);
         }
     }
 
-    if (user) {
-        fetchMyReports();
-    } else {
-        // If no user, we can only show dummy "my reports"
-        setMyReports(dummyReports.filter(r => r.userId === 'user-1') as AppReport[]);
-        setMyReportsLoading(false);
-    }
+    fetchMyReports();
     fetchAllReports();
   }, [user]);
 
