@@ -206,9 +206,6 @@ export default function ReportPage() {
                 ) : (
                    <Image src="https://picsum.photos/800/600" data-ai-hint="coastline aerial" alt="Map" fill className="object-cover" />
                 )}
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <MapPin className="h-12 w-12 text-destructive animate-bounce" />
-                </div>
             </Card>
             <Button size="lg" className="w-full max-w-sm" onClick={handleNext}>Confirm Location</Button>
           </div>
