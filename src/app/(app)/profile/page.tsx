@@ -6,10 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { dummyUser, allBadges } from '@/lib/dummy-data';
-import { Star, LogOut, Edit, ChevronRight } from 'lucide-react';
+import { Star, LogOut, Edit, ChevronRight, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
-import { auth } from '@/lib/firebase';
+import { auth, storage } from '@/lib/firebase';
 import { signOut, updateProfile } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import {
@@ -24,8 +24,9 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -33,9 +34,11 @@ export default function ProfilePage() {
   const { toast } = useToast();
   
   const [newName, setNewName] = useState(user?.displayName || '');
+  const [newPhoto, setNewPhoto] = useState<File | null>(null);
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -46,11 +49,21 @@ export default function ProfilePage() {
     if (!user) return;
     setIsSaving(true);
     try {
-      await updateProfile(user, { displayName: newName });
+      let photoURL = user.photoURL;
+
+      if (newPhoto) {
+        const storageRef = ref(storage, `avatars/${user.uid}`);
+        await uploadBytes(storageRef, newPhoto);
+        photoURL = await getDownloadURL(storageRef);
+      }
+
+      await updateProfile(user, { displayName: newName, photoURL });
+      
       toast({
         title: 'Profile Updated',
-        description: 'Your name has been successfully updated.',
+        description: 'Your profile has been successfully updated.',
       });
+      resetEditState();
       setIsDialogOpen(false); 
     } catch (error: any) {
       toast({
@@ -62,6 +75,27 @@ export default function ProfilePage() {
       setIsSaving(false);
     }
   };
+
+  const onFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setNewPhoto(file);
+      setPhotoPreviewUrl(URL.createObjectURL(file));
+    }
+  };
+  
+  const resetEditState = () => {
+    setNewName(user?.displayName || '');
+    setNewPhoto(null);
+    setPhotoPreviewUrl(null);
+  }
+
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      resetEditState();
+    }
+    setIsDialogOpen(open);
+  }
 
   const displayName = user?.displayName || dummyUser.name;
   const displayEmail = user?.email || dummyUser.email;
@@ -82,7 +116,7 @@ export default function ProfilePage() {
         </Avatar>
         <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold font-headline">{displayName}</h1>
-            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
                 <DialogTrigger asChild>
                     <Button variant="ghost" size="icon">
                         <Edit className="h-5 w-5 text-muted-foreground" />
@@ -95,7 +129,18 @@ export default function ProfilePage() {
                             Make changes to your profile here. Click save when you're done.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
+                    <div className="grid gap-6 py-4">
+                        <div className="flex items-center gap-4">
+                          <Avatar className="h-16 w-16">
+                              <AvatarImage src={photoPreviewUrl || displayAvatarUrl} alt="New Avatar Preview"/>
+                              <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                              <Upload className="mr-2 h-4 w-4" />
+                              Upload Photo
+                          </Button>
+                          <input type="file" ref={fileInputRef} onChange={onFileSelect} accept="image/*" className="hidden"/>
+                        </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                             <Label htmlFor="name" className="text-right">
                                 Name
