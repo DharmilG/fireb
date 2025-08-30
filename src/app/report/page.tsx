@@ -13,7 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, Camera, Check, Image as ImageIcon, Loader2, MapPin, Upload, ShieldX, Bot } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { verifyReport } from '@/ai/flows/verify-report-flow';
+import { backgroundVerifyReport } from '@/ai/flows/background-verify-report-flow';
 import type { VerifyReportOutput } from '@/ai/types/report-verification';
 import { useAuth } from '@/contexts/auth-context';
 import { db, storage } from '@/lib/firebase';
@@ -33,7 +33,6 @@ export default function ReportPage() {
     type: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
   const [verificationResult, setVerificationResult] = useState<VerifyReportOutput | null>(null);
 
   const router = useRouter();
@@ -148,35 +147,31 @@ export default function ReportPage() {
           });
           return;
       }
-      setIsVerifying(true);
+      setIsSubmitting(true);
       try {
-        const result = await verifyReport({
-            photoDataUri: formData.image,
-            title: formData.title,
-            description: formData.description,
-        });
-        setVerificationResult(result);
+        const reportId = await saveReport();
         
-        // Even if flagged, we save the report for manual review.
-        await saveReport(result);
+        // Don't await. Run in background.
+        backgroundVerifyReport(reportId);
+
+        handleNext();
         
       } catch (error) {
-          console.error('Verification or saving failed', error);
+          console.error('Submission failed', error);
           toast({
               variant: 'destructive',
               title: 'Submission Failed',
               description: 'Could not submit the report. Please try again.',
           });
       } finally {
-        setIsVerifying(false);
-        setIsSubmitting(false); // Ensure this is false
-        handleNext();
+        setIsSubmitting(false);
       }
   }
 
-  const saveReport = async (verification: VerifyReportOutput) => {
-    if (!user || !formData.image) return;
-    setIsSubmitting(true);
+  const saveReport = async (): Promise<string> => {
+    if (!user || !formData.image) {
+      throw new Error('User or image not available');
+    }
 
     try {
         // 1. Upload image to Firebase Storage
@@ -185,7 +180,7 @@ export default function ReportPage() {
         const imageUrl = await getDownloadURL(uploadResult.ref);
 
         // 2. Save report to Firestore
-        await addDoc(collection(db, 'reports'), {
+        const docRef = await addDoc(collection(db, 'reports'), {
             userId: user.uid,
             title: formData.title,
             description: formData.description,
@@ -194,8 +189,9 @@ export default function ReportPage() {
             imageUrl,
             status: 'Pending',
             createdAt: serverTimestamp(),
-            verification: verification,
+            verification: null,
         });
+        return docRef.id;
 
     } catch (error) {
         console.error("Error saving report: ", error);
@@ -205,12 +201,10 @@ export default function ReportPage() {
 
   const progress = (step / totalSteps) * 100;
 
-  const isReportOk = verificationResult && !verificationResult.isSpam && !verificationResult.isAiGenerated;
-
   return (
     <div className="flex h-full flex-col bg-muted/20">
       <header className="flex items-center gap-2 border-b bg-background p-4">
-        <Button variant="ghost" size="icon" onClick={handleBack} disabled={isVerifying || isSubmitting}>
+        <Button variant="ghost" size="icon" onClick={handleBack} disabled={isSubmitting}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-grow">
@@ -268,11 +262,11 @@ export default function ReportPage() {
             <h2 className="text-2xl font-bold font-headline text-center">Add Details</h2>
             <div className="space-y-2">
               <Label htmlFor="title">Title</Label>
-              <Input id="title" placeholder="e.g., Plastic waste on beach" value={formData.title} onChange={(e) => setFormData(p => ({...p, title: e.target.value}))} disabled={isVerifying || isSubmitting}/>
+              <Input id="title" placeholder="e.g., Plastic waste on beach" value={formData.title} onChange={(e) => setFormData(p => ({...p, title: e.target.value}))} disabled={isSubmitting}/>
             </div>
             <div className="space-y-2">
               <Label htmlFor="type">Incident Type</Label>
-              <Select onValueChange={(value) => setFormData(p => ({...p, type: value}))} disabled={isVerifying || isSubmitting}>
+              <Select onValueChange={(value) => setFormData(p => ({...p, type: value}))} disabled={isSubmitting}>
                 <SelectTrigger id="type">
                   <SelectValue placeholder="Select a type" />
                 </SelectTrigger>
@@ -286,13 +280,13 @@ export default function ReportPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
-              <Textarea id="description" placeholder="Provide more details about the incident." value={formData.description} onChange={(e) => setFormData(p => ({...p, description: e.target.value}))} disabled={isVerifying || isSubmitting}/>
+              <Textarea id="description" placeholder="Provide more details about the incident." value={formData.description} onChange={(e) => setFormData(p => ({...p, description: e.target.value}))} disabled={isSubmitting}/>
             </div>
-            <Button size="lg" className="w-full" onClick={handleSubmit} disabled={isVerifying || isSubmitting}>
-                {isVerifying || isSubmitting ? (
+            <Button size="lg" className="w-full" onClick={handleSubmit} disabled={isSubmitting}>
+                {isSubmitting ? (
                     <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {isVerifying ? 'Verifying...' : 'Submitting...'}
+                        Submitting...
                     </>
                 ) : (
                     'Submit Report'
@@ -302,48 +296,14 @@ export default function ReportPage() {
         )}
         {step === 4 && (
           <div className="text-center flex flex-col justify-center items-center h-full">
-            {isReportOk ? (
-                <>
-                    <div className="h-24 w-24 rounded-full bg-green-100 flex items-center justify-center mb-4">
-                      <Check className="h-12 w-12 text-green-600" />
-                    </div>
-                    <h2 className="text-2xl font-bold font-headline">Thank You!</h2>
-                    <p className="text-muted-foreground mb-6">Your report has been submitted. We appreciate your help in protecting our coasts.</p>
-                </>
-            ) : (
-                <>
-                    <div className="h-24 w-24 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
-                      <ShieldX className="h-12 w-12 text-destructive" />
-                    </div>
-                    <h2 className="text-2xl font-bold font-headline">Report Flagged</h2>
-                    <p className="text-muted-foreground mb-6">Our AI system flagged this report for the following reasons. It has been submitted for manual review.</p>
-                </>
-            )}
+            <div className="h-24 w-24 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                <Check className="h-12 w-12 text-green-600" />
+            </div>
+            <h2 className="text-2xl font-bold font-headline">Thank You!</h2>
+            <p className="text-muted-foreground mb-6">Your report has been submitted and is being verified. We appreciate your help in protecting our coasts.</p>
 
             <Card className="w-full max-w-sm text-left mb-6">
                 <CardContent className="p-4 space-y-3">
-                    {verificationResult?.isSpam && (
-                        <Alert variant="destructive">
-                           <ShieldX className="h-4 w-4"/>
-                           <AlertTitle>Flagged as Spam</AlertTitle>
-                           <AlertDescription>{verificationResult.spamReason}</AlertDescription>
-                        </Alert>
-                    )}
-                     {verificationResult?.isAiGenerated && (
-                        <Alert variant="destructive">
-                           <Bot className="h-4 w-4"/>
-                           <AlertTitle>AI-Generated Image Detected</AlertTitle>
-                           <AlertDescription>{verificationResult.aiGeneratedReason}</AlertDescription>
-                        </Alert>
-                    )}
-                    {(!verificationResult?.isSpam && !verificationResult?.isAiGenerated) && (
-                      <Alert>
-                        <Check className="h-4 w-4" />
-                        <AlertTitle>Report Verified</AlertTitle>
-                        <AlertDescription>This report passed automatic verification.</AlertDescription>
-                      </Alert>
-                    )}
-                    <div className="pt-2"/>
                     <p><strong>Title:</strong> {formData.title}</p>
                     <p><strong>Type:</strong> {formData.type}</p>
                     <p><strong>Location:</strong> {formData.location}</p>
