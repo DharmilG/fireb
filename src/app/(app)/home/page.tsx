@@ -5,12 +5,67 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { dummyUser } from '@/lib/dummy-data';
-import { Plus } from 'lucide-react';
+import { Plus, MapPin } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/contexts/auth-context';
+import { useEffect, useState } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function HomePage() {
   const { user } = useAuth();
+  const { toast } = useToast();
+  const [locationPermission, setLocationPermission] = useState<PermissionState | 'unsupported'>('prompt');
+
+  useEffect(() => {
+    if (!navigator.geolocation) {
+      setLocationPermission('unsupported');
+      return;
+    }
+
+    const requestLocationPermission = () => {
+      navigator.permissions.query({ name: 'geolocation' }).then((permissionStatus) => {
+        setLocationPermission(permissionStatus.state);
+        
+        if (permissionStatus.state === 'prompt') {
+            toast({
+                title: "Location Access",
+                description: "This app uses your location to tag incident reports. Please allow location access when prompted by your browser.",
+                duration: 8000,
+            });
+            // The browser will show its own prompt. We don't need to call getCurrentPosition here to trigger it.
+            // But we can listen for changes.
+        }
+
+        permissionStatus.onchange = () => {
+            setLocationPermission(permissionStatus.state);
+        };
+      });
+    };
+    
+    requestLocationPermission();
+
+  }, [toast]);
+
+
+  const handleRequestPermission = () => {
+      if(navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+              (position) => {
+                  setLocationPermission('granted');
+                  toast({
+                      title: "Location Access Granted",
+                      description: "Thank you for sharing your location.",
+                  });
+              },
+              (error) => {
+                  if (error.code === error.PERMISSION_DENIED) {
+                    setLocationPermission('denied');
+                  }
+              }
+          );
+      }
+  }
 
   const displayName = user?.displayName || dummyUser.name;
   const displayAvatarUrl = user?.photoURL || dummyUser.avatarUrl;
@@ -30,6 +85,26 @@ export default function HomePage() {
         </div>
       </header>
       
+      {locationPermission !== 'granted' && (
+        <Alert className="mb-6">
+            <MapPin className="h-4 w-4" />
+            <AlertTitle>
+                {locationPermission === 'denied' ? 'Location Access Denied' : 'Enable Location Services'}
+            </AlertTitle>
+            <AlertDescription>
+                {locationPermission === 'denied' 
+                    ? 'Please enable location permissions in your browser settings to automatically tag your reports.'
+                    : 'To automatically tag your reports with your location, please grant us access.'
+                }
+            </AlertDescription>
+            {locationPermission === 'prompt' && (
+                <div className="mt-4">
+                    <Button onClick={handleRequestPermission}>Allow Access</Button>
+                </div>
+            )}
+        </Alert>
+      )}
+
       <div className="mb-8">
         <h2 className="text-2xl font-semibold font-headline mb-4">Incidents Overview</h2>
         <Card className="overflow-hidden">
