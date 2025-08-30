@@ -3,10 +3,10 @@
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { dummyUser, allBadges } from '@/lib/dummy-data';
-import { Star, LogOut, Edit, ChevronRight, Upload, MapPin } from 'lucide-react';
+import { Star, LogOut, Edit, ChevronRight, Upload, MapPin, Percent } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/auth-context';
 import { auth, storage, db } from '@/lib/firebase';
@@ -24,11 +24,12 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { Textarea } from '@/components/ui/textarea';
+import { Progress } from '@/components/ui/progress';
 
 type UserProfile = {
   location?: string;
@@ -95,6 +96,14 @@ export default function ProfilePage() {
       });
       
       setProfileData({ location: newLocation, bio: newBio });
+      // Manually trigger a re-render or state update if auth context doesn't automatically
+      // Forcing a reload is one way, but ideally context handles it.
+      // As a simple fix, we can just update the component's internal state
+      if(auth.currentUser) {
+        auth.currentUser.displayName = newName;
+        auth.currentUser.photoURL = photoURL;
+      }
+      
       resetEditState();
       setIsDialogOpen(false); 
     } catch (error: any) {
@@ -134,8 +143,18 @@ export default function ProfilePage() {
   const displayName = user?.displayName || dummyUser.name;
   const displayEmail = user?.email || dummyUser.email;
   const displayAvatarUrl = user?.photoURL || dummyUser.avatarUrl;
-  const displayLocation = profileData.location || dummyUser.location;
-  const displayBio = profileData.bio || dummyUser.bio;
+  const displayLocation = profileData.location || '';
+  const displayBio = profileData.bio || '';
+  
+  const profileCompletion = useMemo(() => {
+      let score = 0;
+      if (user?.displayName) score += 25;
+      if (user?.photoURL) score += 25;
+      if (displayLocation) score += 25;
+      if (displayBio) score += 25;
+      return score;
+  }, [user, displayLocation, displayBio]);
+
 
   const unlockedBadgeIds = new Set(dummyUser.badges.map(b => b.name));
   const displayedBadges = allBadges.slice(0, 3);
@@ -222,6 +241,20 @@ export default function ProfilePage() {
             </CardContent>
           </Card>
       )}
+      
+      <Card className="mb-4 shadow-md">
+        <CardHeader>
+            <CardTitle className="font-headline text-lg">Profile Completion</CardTitle>
+            <CardDescription>Complete your profile to earn more points!</CardDescription>
+        </CardHeader>
+        <CardContent>
+            <div className="flex items-center gap-4">
+                <Progress value={profileCompletion} className="h-2 flex-grow" />
+                <span className="text-lg font-bold font-headline text-primary">{profileCompletion}%</span>
+            </div>
+        </CardContent>
+      </Card>
+
 
       <Card className="mb-4 text-center shadow-md">
         <CardContent className="p-4">
