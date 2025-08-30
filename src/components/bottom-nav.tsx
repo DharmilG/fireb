@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { dummyUser } from '@/lib/dummy-data';
 
 
 const navItems = [
@@ -25,34 +26,28 @@ export function BottomNav() {
   useEffect(() => {
     const checkProfileCompleteness = async () => {
       if (user) {
-        // A display name is the basic requirement.
-        if (!user.displayName) {
-            setIsProfileIncomplete(true);
-            return;
-        }
-
-        // For a more detailed check, you can fetch user's profile document from Firestore
-        // This is an example, assuming you store extra profile info in a 'users' collection
         const userDocRef = doc(db, "users", user.uid);
         const userDoc = await getDoc(userDocRef);
+        
         if (userDoc.exists()) {
             const userData = userDoc.data();
-            // Check for other fields like location or bio
-            if (!userData.location) {
+            // Profile is incomplete if name is default, or if location/bio are missing
+            if (!userData.displayName || userData.displayName === dummyUser.name || !userData.location || !userData.bio || !userData.photoURL || userData.photoURL === dummyUser.avatarUrl) {
                 setIsProfileIncomplete(true);
-                return;
+            } else {
+                setIsProfileIncomplete(false);
             }
         } else {
-            // If the user document doesn't even exist, profile is incomplete
+            // If the user document doesn't even exist, profile is definitely incomplete
             setIsProfileIncomplete(true);
-            return;
         }
+      } else {
+        setIsProfileIncomplete(false);
       }
-      setIsProfileIncomplete(false);
     };
 
     checkProfileCompleteness();
-  }, [user]);
+  }, [user, pathname]); // Re-check on navigation
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-10 border-t bg-background/95 backdrop-blur-sm">

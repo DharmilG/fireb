@@ -32,6 +32,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Progress } from '@/components/ui/progress';
 
 type UserProfile = {
+  displayName?: string;
+  photoURL?: string;
+  email?: string;
   location?: string;
   bio?: string;
 };
@@ -41,16 +44,18 @@ export default function ProfilePage() {
   const router = useRouter();
   const { toast } = useToast();
   
-  const [newName, setNewName] = useState(user?.displayName || '');
+  const [profileData, setProfileData] = useState<UserProfile>({});
+
+  const [newName, setNewName] = useState('');
   const [newPhoto, setNewPhoto] = useState<File | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [newLocation, setNewLocation] = useState('');
+  const [newBio, setNewBio] = useState('');
+  
   const [isSaving, setIsSaving] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [profileData, setProfileData] = useState<UserProfile>({});
-  const [newLocation, setNewLocation] = useState('');
-  const [newBio, setNewBio] = useState('');
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -60,8 +65,12 @@ export default function ProfilePage() {
         if (docSnap.exists()) {
           const data = docSnap.data() as UserProfile;
           setProfileData(data);
+          setNewName(data.displayName || user.displayName || '');
           setNewLocation(data.location || '');
           setNewBio(data.bio || '');
+        } else {
+            // Pre-fill with auth data if firestore doc doesn't exist
+            setNewName(user.displayName || '');
         }
       }
     };
@@ -77,33 +86,33 @@ export default function ProfilePage() {
     if (!user) return;
     setIsSaving(true);
     try {
-      let photoURL = user.photoURL;
+      let photoURL = profileData.photoURL || user.photoURL;
 
       if (newPhoto) {
         const storageRef = ref(storage, `avatars/${user.uid}`);
         await uploadBytes(storageRef, newPhoto);
         photoURL = await getDownloadURL(storageRef);
       }
-
+      
+      // Update Firebase Auth profile
       await updateProfile(user, { displayName: newName, photoURL });
 
+      // Update Firestore user document
       const userDocRef = doc(db, 'users', user.uid);
-      await setDoc(userDocRef, { location: newLocation, bio: newBio }, { merge: true });
+      const updatedData = { 
+        displayName: newName, 
+        photoURL,
+        location: newLocation, 
+        bio: newBio 
+      };
+      await setDoc(userDocRef, updatedData, { merge: true });
 
       toast({
         title: 'Profile Updated',
         description: 'Your profile has been successfully updated.',
       });
       
-      setProfileData({ location: newLocation, bio: newBio });
-      // Manually trigger a re-render or state update if auth context doesn't automatically
-      // Forcing a reload is one way, but ideally context handles it.
-      // As a simple fix, we can just update the component's internal state
-      if(auth.currentUser) {
-        auth.currentUser.displayName = newName;
-        auth.currentUser.photoURL = photoURL;
-      }
-      
+      setProfileData(prev => ({...prev, ...updatedData}));
       resetEditState();
       setIsDialogOpen(false); 
     } catch (error: any) {
@@ -126,11 +135,16 @@ export default function ProfilePage() {
   };
   
   const resetEditState = () => {
-    setNewName(user?.displayName || '');
+    setNewName(profileData.displayName || user?.displayName || '');
     setNewPhoto(null);
     setPhotoPreviewUrl(null);
     setNewLocation(profileData.location || '');
     setNewBio(profileData.bio || '');
+  }
+  
+  const handleDialogOpening = () => {
+      resetEditState();
+      setIsDialogOpen(true);
   }
 
   const handleDialogClose = (open: boolean) => {
@@ -140,20 +154,20 @@ export default function ProfilePage() {
     setIsDialogOpen(open);
   }
 
-  const displayName = user?.displayName || dummyUser.name;
+  const displayName = profileData.displayName || user?.displayName || dummyUser.name;
   const displayEmail = user?.email || dummyUser.email;
-  const displayAvatarUrl = user?.photoURL || dummyUser.avatarUrl;
+  const displayAvatarUrl = profileData.photoURL || user?.photoURL || dummyUser.avatarUrl;
   const displayLocation = profileData.location || '';
   const displayBio = profileData.bio || '';
   
   const profileCompletion = useMemo(() => {
       let score = 0;
-      if (user?.displayName && user.displayName !== dummyUser.name) score += 25;
-      if (user?.photoURL && user.photoURL !== dummyUser.avatarUrl) score += 25;
+      if (displayName !== dummyUser.name) score += 25;
+      if (displayAvatarUrl !== dummyUser.avatarUrl) score += 25;
       if (displayLocation) score += 25;
       if (displayBio) score += 25;
       return score;
-  }, [user, displayLocation, displayBio]);
+  }, [displayName, displayAvatarUrl, displayLocation, displayBio]);
 
   const userBadges = useMemo(() => {
       const badges = [...dummyUser.badges];
@@ -183,7 +197,7 @@ export default function ProfilePage() {
             <h1 className="text-2xl font-bold font-headline">{displayName}</h1>
             <Dialog open={isDialogOpen} onOpenChange={handleDialogClose}>
                 <DialogTrigger asChild>
-                    <Button variant="ghost" size="icon">
+                    <Button variant="ghost" size="icon" onClick={handleDialogOpening}>
                         <Edit className="h-5 w-5 text-muted-foreground" />
                     </Button>
                 </DialogTrigger>
@@ -198,7 +212,7 @@ export default function ProfilePage() {
                         <div className="flex items-center gap-4">
                           <Avatar className="h-16 w-16">
                               <AvatarImage src={photoPreviewUrl || displayAvatarUrl} alt="New Avatar Preview"/>
-                              <AvatarFallback>{displayName.charAt(0)}</AvatarFallback>
+                              <AvatarFallback>{(newName || displayName).charAt(0)}</AvatarFallback>
                           </Avatar>
                           <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
                               <Upload className="mr-2 h-4 w-4" />

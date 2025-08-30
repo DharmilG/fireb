@@ -14,10 +14,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Logo } from '@/components/logo';
-import { auth } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function Login() {
   const router = useRouter();
@@ -55,7 +56,22 @@ export default function Login() {
 
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        await updateProfile(userCredential.user, { displayName: name });
+        const user = userCredential.user;
+        
+        // Update Firebase Auth profile
+        await updateProfile(user, { displayName: name });
+
+        // Create user document in Firestore
+        const userDocRef = doc(db, 'users', user.uid);
+        await setDoc(userDocRef, {
+            uid: user.uid,
+            displayName: name,
+            email: user.email,
+            photoURL: user.photoURL,
+            location: '',
+            bio: '',
+        });
+
         router.push('/home');
     } catch (error: any) {
         toast({

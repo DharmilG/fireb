@@ -11,11 +11,33 @@ import { useAuth } from '@/contexts/auth-context';
 import { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 export default function HomePage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [locationPermission, setLocationPermission] = useState<PermissionState | 'unsupported'>('prompt');
+  const [displayName, setDisplayName] = useState(dummyUser.name);
+  const [displayAvatarUrl, setDisplayAvatarUrl] = useState(dummyUser.avatarUrl);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (user) {
+        const userDocRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(userDocRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setDisplayName(data.displayName || user.displayName || dummyUser.name);
+          setDisplayAvatarUrl(data.photoURL || user.photoURL || dummyUser.avatarUrl);
+        } else {
+          setDisplayName(user.displayName || dummyUser.name);
+          setDisplayAvatarUrl(user.photoURL || dummyUser.avatarUrl);
+        }
+      }
+    };
+    fetchUserData();
+  }, [user]);
 
   useEffect(() => {
     if (!navigator.geolocation) {
@@ -33,8 +55,6 @@ export default function HomePage() {
                 description: "This app uses your location to tag incident reports. Please allow location access when prompted by your browser.",
                 duration: 8000,
             });
-            // The browser will show its own prompt. We don't need to call getCurrentPosition here to trigger it.
-            // But we can listen for changes.
         }
 
         permissionStatus.onchange = () => {
@@ -66,9 +86,6 @@ export default function HomePage() {
           );
       }
   }
-
-  const displayName = user?.displayName || dummyUser.name;
-  const displayAvatarUrl = user?.photoURL || dummyUser.avatarUrl;
 
   return (
     <div className="container mx-auto px-4 py-8">
