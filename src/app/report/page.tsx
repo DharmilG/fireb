@@ -16,9 +16,8 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { backgroundVerifyReport } from '@/ai/flows/background-verify-report-flow';
 import type { VerifyReportOutput } from '@/ai/types/report-verification';
 import { useAuth } from '@/contexts/auth-context';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadString, getDownloadURL } from 'firebase/storage';
 
 
 const totalSteps = 4;
@@ -174,19 +173,13 @@ export default function ReportPage() {
     }
 
     try {
-        // 1. Upload image to Firebase Storage
-        const storageRef = ref(storage, `reports/${user.uid}/${Date.now()}.png`);
-        const uploadResult = await uploadString(storageRef, formData.image, 'data_url');
-        const imageUrl = await getDownloadURL(uploadResult.ref);
-
-        // 2. Save report to Firestore
         const docRef = await addDoc(collection(db, 'reports'), {
             userId: user.uid,
             title: formData.title,
             description: formData.description,
             type: formData.type,
             location: formData.location,
-            imageUrl,
+            imageUrl: formData.image, // Save the data URI directly
             status: 'Pending',
             createdAt: serverTimestamp(),
             verification: null,
@@ -195,7 +188,7 @@ export default function ReportPage() {
 
     } catch (error) {
         console.error("Error saving report: ", error);
-        throw error; // Re-throw to be caught by handleSubmit
+        throw error;
     }
   }
 

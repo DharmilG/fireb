@@ -8,11 +8,12 @@
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 import {
-  VerifyReportInputSchema,
   VerifyReportOutputSchema,
   type VerifyReportOutput,
 } from '@/ai/types/report-verification';
 import {getReport, updateReport} from '@/services/report-service';
+import { ref, uploadString, getDownloadURL, getStorage } from 'firebase/storage';
+import { VerifyReportInputSchema } from '@/ai/types/report-verification';
 
 export async function backgroundVerifyReport(reportId: string): Promise<VerifyReportOutput> {
   return backgroundVerifyReportFlow(reportId);
@@ -48,14 +49,28 @@ const backgroundVerifyReportFlow = ai.defineFlow(
       throw new Error(`Report with id ${reportId} not found.`);
     }
 
+    // The image is initially a data URI. Upload it to storage.
+    const storage = getStorage();
+    const storageRef = ref(storage, `reports/${report.userId}/${reportId}.png`);
+    const uploadResult = await uploadString(storageRef, report.imageUrl, 'data_url');
+    const publicImageUrl = await getDownloadURL(uploadResult.ref);
+
+    // Now, run verification with the data URI.
     const {output} = await prompt({
       title: report.title,
       description: report.description,
-      photoDataUri: report.imageUrl,
+      photoDataUri: report.imageUrl, // Use the original data URI for analysis
     });
 
     if (output) {
-      await updateReport(reportId, {verification: output});
+      // Update the report with the public URL and the verification result.
+      await updateReport(reportId, { 
+        verification: output,
+        imageUrl: publicImageUrl 
+      });
+    } else {
+      // Still update the image URL even if verification fails
+      await updateReport(reportId, { imageUrl: publicImageUrl });
     }
 
     return output!;
