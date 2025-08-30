@@ -13,11 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, Camera, Check, Image as ImageIcon, Loader2, MapPin, Upload, ShieldX, Bot } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { backgroundVerifyReport } from '@/ai/flows/background-verify-report-flow';
-import type { VerifyReportOutput } from '@/ai/types/report-verification';
 import { useAuth } from '@/contexts/auth-context';
-import { db } from '@/lib/firebase';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
 
 const totalSteps = 4;
@@ -32,7 +28,6 @@ export default function ReportPage() {
     type: '',
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [verificationResult, setVerificationResult] = useState<VerifyReportOutput | null>(null);
 
   const router = useRouter();
   const { toast } = useToast();
@@ -147,49 +142,12 @@ export default function ReportPage() {
           return;
       }
       setIsSubmitting(true);
-      try {
-        const reportId = await saveReport();
-        
-        // Don't await. Run in background.
-        backgroundVerifyReport(reportId);
-
-        handleNext();
-        
-      } catch (error) {
-          console.error('Submission failed', error);
-          toast({
-              variant: 'destructive',
-              title: 'Submission Failed',
-              description: 'Could not submit the report. Please try again.',
-          });
-      } finally {
-        setIsSubmitting(false);
-      }
-  }
-
-  const saveReport = async (): Promise<string> => {
-    if (!user || !formData.image) {
-      throw new Error('User or image not available');
-    }
-
-    try {
-        const docRef = await addDoc(collection(db, 'reports'), {
-            userId: user.uid,
-            title: formData.title,
-            description: formData.description,
-            type: formData.type,
-            location: formData.location,
-            imageUrl: formData.image, // Save the data URI directly
-            status: 'Pending',
-            createdAt: serverTimestamp(),
-            verification: null,
-        });
-        return docRef.id;
-
-    } catch (error) {
-        console.error("Error saving report: ", error);
-        throw error;
-    }
+      
+      // Simulate submission
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setIsSubmitting(false);
+      handleNext();
   }
 
   const progress = (step / totalSteps) * 100;
