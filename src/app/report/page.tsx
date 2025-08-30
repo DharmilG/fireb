@@ -10,10 +10,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Camera, Check, Image as ImageIcon, MapPin, Upload } from 'lucide-react';
+import { ArrowLeft, Camera, Check, Image as ImageIcon, Loader2, MapPin, Upload, ShieldX, Bot } from 'lucide-react';
 import { Logo } from '@/components/logo';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { verifyReport, type VerifyReportOutput } from '@/ai/flows/verify-report-flow';
 
 const totalSteps = 4;
 
@@ -26,6 +27,9 @@ export default function ReportPage() {
     description: '',
     type: '',
   });
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationResult, setVerificationResult] = useState<VerifyReportOutput | null>(null);
+
   const router = useRouter();
   const { toast } = useToast();
 
@@ -70,7 +74,6 @@ export default function ReportPage() {
     }
       
     return () => {
-      // Stop camera stream when component unmounts or step changes
       if (videoRef.current && videoRef.current.srcObject) {
           const mediaStream = videoRef.current.srcObject as MediaStream;
           mediaStream.getTracks().forEach(track => track.stop());
@@ -91,10 +94,17 @@ export default function ReportPage() {
   };
 
   const handleImageSelect = () => {
-    // This function is for library upload
     setFormData(prev => ({ ...prev, image: 'https://picsum.photos/400/300?random=10' }));
     handleNext();
   };
+  
+  const stopCameraStream = () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+          const mediaStream = videoRef.current.srcObject as MediaStream;
+          mediaStream.getTracks().forEach(track => track.stop());
+          videoRef.current.srcObject = null;
+      }
+  }
 
   const handleTakePhoto = () => {
     if (videoRef.current && canvasRef.current && hasCameraPermission) {
@@ -107,6 +117,7 @@ export default function ReportPage() {
         context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
         const dataUrl = canvas.toDataURL('image/png');
         setFormData(prev => ({ ...prev, image: dataUrl }));
+        stopCameraStream();
         handleNext();
       }
     } else {
@@ -118,17 +129,44 @@ export default function ReportPage() {
     }
   };
   
-  const handleSubmit = () => {
-      // In a real app, you would submit the data here.
-      handleNext();
+  const handleSubmit = async () => {
+      if (!formData.image || !formData.title || !formData.type) {
+          toast({
+              variant: 'destructive',
+              title: 'Missing Information',
+              description: 'Please fill out the title and type before submitting.',
+          });
+          return;
+      }
+      setIsVerifying(true);
+      try {
+        const result = await verifyReport({
+            photoDataUri: formData.image,
+            title: formData.title,
+            description: formData.description,
+        });
+        setVerificationResult(result);
+      } catch (error) {
+          console.error('Verification failed', error);
+          toast({
+              variant: 'destructive',
+              title: 'Verification Failed',
+              description: 'Could not verify the report. Please try again.',
+          });
+      } finally {
+        setIsVerifying(false);
+        handleNext();
+      }
   }
 
   const progress = (step / totalSteps) * 100;
 
+  const isReportOk = verificationResult && !verificationResult.isSpam && !verificationResult.isAiGenerated;
+
   return (
     <div className="flex h-full flex-col bg-muted/20">
       <header className="flex items-center gap-2 border-b bg-background p-4">
-        <Button variant="ghost" size="icon" onClick={handleBack}>
+        <Button variant="ghost" size="icon" onClick={handleBack} disabled={isVerifying}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-grow">
@@ -184,11 +222,11 @@ export default function ReportPage() {
             <h2 className="text-2xl font-bold font-headline text-center">Add Details</h2>
             <div className="space-y-2">
               <Label htmlFor="title">Title</Label>
-              <Input id="title" placeholder="e.g., Plastic waste on beach" value={formData.title} onChange={(e) => setFormData(p => ({...p, title: e.target.value}))} />
+              <Input id="title" placeholder="e.g., Plastic waste on beach" value={formData.title} onChange={(e) => setFormData(p => ({...p, title: e.target.value}))} disabled={isVerifying}/>
             </div>
             <div className="space-y-2">
               <Label htmlFor="type">Incident Type</Label>
-              <Select onValueChange={(value) => setFormData(p => ({...p, type: value}))}>
+              <Select onValueChange={(value) => setFormData(p => ({...p, type: value}))} disabled={isVerifying}>
                 <SelectTrigger id="type">
                   <SelectValue placeholder="Select a type" />
                 </SelectTrigger>
@@ -202,20 +240,57 @@ export default function ReportPage() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
-              <Textarea id="description" placeholder="Provide more details about the incident." value={formData.description} onChange={(e) => setFormData(p => ({...p, description: e.target.value}))}/>
+              <Textarea id="description" placeholder="Provide more details about the incident." value={formData.description} onChange={(e) => setFormData(p => ({...p, description: e.target.value}))} disabled={isVerifying}/>
             </div>
-            <Button size="lg" className="w-full" onClick={handleSubmit}>Review Report</Button>
+            <Button size="lg" className="w-full" onClick={handleSubmit} disabled={isVerifying}>
+                {isVerifying ? (
+                    <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Verifying...
+                    </>
+                ) : (
+                    'Review Report'
+                )}
+            </Button>
           </div>
         )}
         {step === 4 && (
           <div className="text-center flex flex-col justify-center items-center h-full">
-            <div className="h-24 w-24 rounded-full bg-green-100 flex items-center justify-center mb-4">
-              <Check className="h-12 w-12 text-green-600" />
-            </div>
-            <h2 className="text-2xl font-bold font-headline">Thank You!</h2>
-            <p className="text-muted-foreground mb-6">Your report has been submitted. We appreciate your help in protecting our coasts.</p>
+            {isReportOk ? (
+                <>
+                    <div className="h-24 w-24 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                      <Check className="h-12 w-12 text-green-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold font-headline">Thank You!</h2>
+                    <p className="text-muted-foreground mb-6">Your report has been submitted. We appreciate your help in protecting our coasts.</p>
+                </>
+            ) : (
+                <>
+                    <div className="h-24 w-24 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                      <ShieldX className="h-12 w-12 text-destructive" />
+                    </div>
+                    <h2 className="text-2xl font-bold font-headline">Report Flagged</h2>
+                    <p className="text-muted-foreground mb-6">Our AI system flagged this report for the following reasons. It will be manually reviewed.</p>
+                </>
+            )}
+
             <Card className="w-full max-w-sm text-left mb-6">
-                <CardContent className="p-4 space-y-2">
+                <CardContent className="p-4 space-y-3">
+                    {verificationResult?.isSpam && (
+                        <Alert variant="destructive">
+                           <ShieldX className="h-4 w-4"/>
+                           <AlertTitle>Flagged as Spam</AlertTitle>
+                           <AlertDescription>{verificationResult.spamReason}</AlertDescription>
+                        </Alert>
+                    )}
+                     {verificationResult?.isAiGenerated && (
+                        <Alert variant="destructive">
+                           <Bot className="h-4 w-4"/>
+                           <AlertTitle>AI-Generated Image Detected</AlertTitle>
+                           <AlertDescription>{verificationResult.aiGeneratedReason}</AlertDescription>
+                        </Alert>
+                    )}
+                    {!isReportOk && <div className="pt-2"/>}
                     <p><strong>Title:</strong> {formData.title || 'Plastic waste on beach'}</p>
                     <p><strong>Type:</strong> {formData.type || 'Pollution'}</p>
                     <p><strong>Location:</strong> {formData.location}</p>
