@@ -55,9 +55,7 @@ export default function Login() {
 
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        if (userCredential.user) {
-            await updateProfile(userCredential.user, { displayName: name });
-        }
+        await updateProfile(userCredential.user, { displayName: name });
         router.push('/home');
     } catch (error: any) {
         toast({
