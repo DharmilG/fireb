@@ -8,7 +8,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Report } from '@/lib/dummy-data';
+import { Report, dummyReports } from '@/lib/dummy-data';
 import { cn } from '@/lib/utils';
 import { MapPin } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -108,7 +108,7 @@ export default function ReportsPage() {
           orderBy('createdAt', 'desc')
         );
         const querySnapshot = await getDocs(q);
-        const reports = querySnapshot.docs.map(doc => {
+        let reports = querySnapshot.docs.map(doc => {
             const data = doc.data();
             return {
               id: doc.id,
@@ -116,9 +116,16 @@ export default function ReportsPage() {
               date: data.createdAt ? format(data.createdAt.toDate(), 'yyyy-MM-dd') : 'N/A',
             } as AppReport;
         });
+        
+        if(reports.length === 0) {
+            reports = dummyReports.filter(r => r.userId === user.uid) as AppReport[];
+        }
+
         setMyReports(reports);
       } catch (error) {
         console.error("Error fetching user reports: ", error);
+        // Fallback to dummy data on error
+        setMyReports(dummyReports.filter(r => r.userId === user.uid) as AppReport[]);
       } finally {
         setMyReportsLoading(false);
       }
@@ -129,7 +136,7 @@ export default function ReportsPage() {
         try {
             const q = query(collection(db, 'reports'), orderBy('createdAt', 'desc'));
             const querySnapshot = await getDocs(q);
-            const reports = querySnapshot.docs.map(doc => {
+            let reports = querySnapshot.docs.map(doc => {
                 const data = doc.data();
                 return {
                     id: doc.id,
@@ -137,15 +144,26 @@ export default function ReportsPage() {
                     date: data.createdAt ? format(data.createdAt.toDate(), 'yyyy-MM-dd') : 'N/A',
                 } as AppReport
             });
+            if (reports.length === 0) {
+                reports = dummyReports as AppReport[];
+            }
             setAllReports(reports);
         } catch (error) {
             console.error("Error fetching all reports: ", error);
+            // Fallback to dummy data on error
+            setAllReports(dummyReports as AppReport[]);
         } finally {
             setAllReportsLoading(false);
         }
     }
 
-    fetchMyReports();
+    if (user) {
+        fetchMyReports();
+    } else {
+        // If no user, we can only show dummy "my reports"
+        setMyReports(dummyReports.filter(r => r.userId === 'user-1') as AppReport[]);
+        setMyReportsLoading(false);
+    }
     fetchAllReports();
   }, [user]);
 
