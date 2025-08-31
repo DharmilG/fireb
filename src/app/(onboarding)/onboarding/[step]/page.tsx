@@ -53,8 +53,7 @@ const onboardingSteps = [
 
 export default function OnboardingPage({ params }: { params: { step: string } }) {
   const router = useRouter();
-  const awaitedParams = React.use(params);
-  const currentStep = awaitedParams?.step ? parseInt(awaitedParams.step, 10) : 1;
+  const currentStep = params?.step ? parseInt(params.step, 10) : 1;
   const currentStepIndex = currentStep - 1;
 
   if (isNaN(currentStepIndex) || currentStepIndex < 0 || currentStepIndex >= onboardingSteps.length) {

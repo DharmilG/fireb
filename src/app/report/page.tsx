@@ -14,7 +14,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, Camera, Check, ShieldX, Bot, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { verifyReport, type VerifyReportOutput } from '@/ai/flows/verify-report-flow';
+import { verifyReport } from '@/ai/flows/verify-report-flow';
+import type { VerifyReportOutput } from '@/ai/types/report-verification';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/auth-context';
@@ -34,6 +35,7 @@ export default function ReportPage() {
     type: '',
   });
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [verificationResult, setVerificationResult] = useState<VerifyReportOutput | null>(null);
   const [wasReportAccepted, setWasReportAccepted] = useState(false);
 
@@ -164,6 +166,9 @@ export default function ReportPage() {
   };
   
   const handleSubmit = async () => {
+      if (isSubmitting || isVerifying) {
+          return;
+      }
       if (!formData.image || !formData.title || !formData.type) {
           toast({
               variant: 'destructive',
@@ -172,6 +177,7 @@ export default function ReportPage() {
           });
           return;
       }
+      setIsSubmitting(true);
       setIsVerifying(true);
       
       try {
@@ -210,6 +216,7 @@ export default function ReportPage() {
         });
       } finally {
         setIsVerifying(false);
+        setIsSubmitting(false);
       }
   }
 
