@@ -49,17 +49,7 @@ export const allBadges: BadgeInfo[] = [
 
 export const dummyReports: Report[] = [
   {
-    id: '1',
-    userId: 'user-1', // This is one of "my" reports
-    title: 'Plastic waste accumulation on Turtle Cove',
-    type: 'Pollution',
-    status: 'Pending',
-    imageUrl: 'https://picsum.photos/400/300?random=3',
-    location: 'Turtle Cove',
-    date: '2023-11-02',
-  },
-  {
-    id: '2',
+    id: 'd-2',
     userId: 'user-2',
     title: 'Illegal logging in coastal forest',
     type: 'Deforestation',
@@ -69,7 +59,7 @@ export const dummyReports: Report[] = [
     date: '2023-10-28',
   },
   {
-    id: '3',
+    id: 'd-3',
     userId: 'user-3',
     title: 'Fishing nets abandoned near Coral Reef',
     type: 'Illegal Fishing',
@@ -78,18 +68,8 @@ export const dummyReports: Report[] = [
     location: 'Coral Point',
     date: '2023-10-22',
   },
-    {
-    id: '4',
-    userId: 'user-1', // This is one of "my" reports
-    title: 'Oil Spill near Sunrise Beach',
-    type: 'Pollution',
-    status: 'Resolved',
-    imageUrl: 'https://picsum.photos/400/300?random=1',
-    location: 'Sunrise Beach',
-    date: '2023-10-15',
-  },
   {
-    id: '5',
+    id: 'd-5',
     userId: 'user-4',
     title: 'Unusual algae bloom observed',
     type: 'Other',
@@ -121,3 +101,5 @@ export const dummyUser: User = {
     { name: 'Cleanup Champion', iconUrl: '/badge-cleanup.svg' },
   ],
 };
+
+    

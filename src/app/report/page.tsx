@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -10,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
-import { ArrowLeft, Camera, Check, Image as ImageIcon, Loader2, MapPin, Upload, ShieldX, Bot } from 'lucide-react';
+import { ArrowLeft, Camera, Check, ShieldX, Bot, XCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { verifyReport, type VerifyReportOutput } from '@/ai/flows/verify-report-flow';
@@ -34,6 +35,7 @@ export default function ReportPage() {
   });
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationResult, setVerificationResult] = useState<VerifyReportOutput | null>(null);
+  const [wasReportAccepted, setWasReportAccepted] = useState(false);
 
   const router = useRouter();
   const { toast } = useToast();
@@ -179,7 +181,11 @@ export default function ReportPage() {
             photoDataUri: formData.image,
         });
         setVerificationResult(result);
-        if (user && !result.isSpam) {
+
+        const isAccepted = user && !result.isSpam && !result.isAiGenerated;
+        setWasReportAccepted(isAccepted);
+
+        if (isAccepted) {
             const reportData = {
                 userId: user.uid,
                 title: formData.title,
@@ -244,7 +250,7 @@ export default function ReportPage() {
                 <Button size="lg" onClick={handleTakePhoto} disabled={!hasCameraPermission}><Camera className="mr-2 h-4 w-4" /> Take Photo</Button>
                 <label htmlFor="file-upload" className="w-full">
                   <Button asChild size="lg" variant="outline" className="w-full cursor-pointer">
-                    <span><Upload className="mr-2 h-4 w-4" /> From Library</span>
+                    <span><Camera className="mr-2 h-4 w-4" /> From Library</span>
                   </Button>
                 </label>
                 <input id="file-upload" type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
@@ -294,24 +300,29 @@ export default function ReportPage() {
               <Textarea id="description" placeholder="Provide more details about the incident." value={formData.description} onChange={(e) => setFormData(p => ({...p, description: e.target.value}))} disabled={isVerifying}/>
             </div>
             <Button size="lg" className="w-full" onClick={handleSubmit} disabled={isVerifying}>
-                {isVerifying ? (
-                    <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Verifying...
-                    </>
-                ) : (
-                    'Verify & Submit Report'
-                )}
+                {isVerifying ? 'Verifying...' : 'Verify & Submit Report'}
             </Button>
           </div>
         )}
         {step === 4 && (
           <div className="text-center flex flex-col justify-center items-center h-full">
-            <div className="h-24 w-24 rounded-full bg-green-100 flex items-center justify-center mb-4">
-                <Check className="h-12 w-12 text-green-600" />
-            </div>
-            <h2 className="text-2xl font-bold font-headline">Thank You!</h2>
-            <p className="text-muted-foreground mb-6">Your report has been submitted. We appreciate your help in protecting our coasts.</p>
+            {wasReportAccepted ? (
+                <>
+                    <div className="h-24 w-24 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                        <Check className="h-12 w-12 text-green-600" />
+                    </div>
+                    <h2 className="text-2xl font-bold font-headline">Thank You!</h2>
+                    <p className="text-muted-foreground mb-6">Your report has been submitted. We appreciate your help in protecting our coasts.</p>
+                </>
+            ) : (
+                 <>
+                    <div className="h-24 w-24 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                        <XCircle className="h-12 w-12 text-destructive" />
+                    </div>
+                    <h2 className="text-2xl font-bold font-headline">Report Rejected</h2>
+                    <p className="text-muted-foreground mb-6">Unfortunately, your report could not be accepted. See details below.</p>
+                </>
+            )}
 
             {verificationResult && (
                  <Card className="w-full max-w-sm text-left mb-6">
@@ -341,3 +352,5 @@ export default function ReportPage() {
     </div>
   );
 }
+
+    

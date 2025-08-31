@@ -1,3 +1,4 @@
+
 'use client';
 
 import Image from 'next/image';
@@ -134,7 +135,7 @@ export default function ReportsPage() {
         try {
             const q = query(collection(db, 'reports'), orderBy('createdAt', 'desc'));
             const querySnapshot = await getDocs(q);
-            const reports = querySnapshot.docs.map(doc => {
+            const reportsFromDb = querySnapshot.docs.map(doc => {
                 const data = doc.data();
                 return {
                     id: doc.id,
@@ -142,10 +143,12 @@ export default function ReportsPage() {
                     date: data.createdAt ? format(data.createdAt.toDate(), 'yyyy-MM-dd') : 'N/A',
                 } as AppReport
             });
-            setAllReports(reports);
+            // Combine dummy reports with reports from DB
+            setAllReports([...reportsFromDb, ...dummyReports]);
         } catch (error) {
             console.error("Error fetching all reports: ", error);
-            setAllReports([]);
+            // Fallback to dummy reports if fetch fails
+            setAllReports(dummyReports);
         } finally {
             setAllReportsLoading(false);
         }
@@ -176,3 +179,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    
